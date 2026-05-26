@@ -115,6 +115,22 @@ const api = (body) => fetch("/api/chat", {
   body: JSON.stringify(body)
 }).then(r => r.json());
 
+const extractPdfText = async (arrayBuffer) => {
+  const script = document.createElement("script");
+  script.src = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js";
+  await new Promise((res, rej) => { script.onload = res; script.onerror = rej; document.head.appendChild(script); });
+  const pdfjsLib = window.pdfjsLib;
+  pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+  const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+  let text = "";
+  for (let i = 1; i <= pdf.numPages; i++) {
+    const page = await pdf.getPage(i);
+    const content = await page.getTextContent();
+    text += content.items.map(item => item.str).join(" ") + "\n";
+  }
+  return text;
+};
+
 export default function App() {
   const [tab, setTab] = useState("Chat");
   const [messages, setMessages] = useState([{
@@ -176,15 +192,21 @@ export default function App() {
     const file = e.target.files[0];
     if (!file) return;
     setUploading(true);
-    const reader = new FileReader();
-    reader.onload = async (ev) => {
-      const text = ev.target.result;
+    try {
+      let text = "";
+      if (file.type === "application/pdf") {
+        const arrayBuffer = await file.arrayBuffer();
+        text = await extractPdfText(arrayBuffer);
+      } else {
+        text = await file.text();
+      }
       await api({ action: "save_document", name: file.name, text });
       const d = await api({ action: "load_documents" });
       if (d.documents) setDocuments(d.documents);
-      setUploading(false);
-    };
-    reader.readAsText(file);
+    } catch (err) {
+      console.error("Upload error:", err);
+    }
+    setUploading(false);
     e.target.value = "";
   };
 
@@ -288,14 +310,12 @@ export default function App() {
       {tab === "Documents" && (
         <div style={{ flex: 1, maxWidth: 800, width: "100%", margin: "0 auto", padding: "24px 16px", display: "flex", flexDirection: "column", gap: 20 }}>
           <div style={{ fontSize: 11, letterSpacing: 2, color: C.dim }}>UPLOADED DOCUMENTS — the AI reads these automatically</div>
-          <div
-            onClick={() => fileRef.current?.click()}
-            style={{
-              border: `2px dashed ${C.border}`, borderRadius: 8, padding: "32px",
-              textAlign: "center", cursor: "pointer", color: C.dim, fontSize: 14
-            }}>
-            {uploading ? "Uploading…" : "Click to upload a file (TXT, CSV, or PDF text)"}
-            <input ref={fileRef} type="file" accept=".txt,.csv,.md" onChange={handleFileUpload} style={{ display: "none" }} />
+          <div onClick={() => fileRef.current?.click()} style={{
+            border: `2px dashed ${C.border}`, borderRadius: 8, padding: "32px",
+            textAlign: "center", cursor: "pointer", color: C.dim, fontSize: 14
+          }}>
+            {uploading ? "Uploading and extracting text…" : "Click to upload a file (PDF, TXT, or CSV)"}
+            <input ref={fileRef} type="file" accept=".txt,.csv,.md,.pdf" onChange={handleFileUpload} style={{ display: "none" }} />
           </div>
           {documents.length === 0 ? (
             <div style={{ color: C.dim, fontSize: 13, textAlign: "center" }}>No documents uploaded yet.</div>
@@ -305,7 +325,7 @@ export default function App() {
                 <div key={doc.id} style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 8, padding: "14px 18px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                   <div>
                     <div style={{ fontSize: 14, color: C.text }}>{doc.name}</div>
-                    <div style={{ fontSize: 11, color: C.dim, marginTop: 3 }}>{doc.content.length.toLocaleString()} characters</div>
+                    <div style={{ fontSize: 11, color: C.dim, marginTop: 3 }}>{doc.content.length.toLocaleString()} characters extracted</div>
                   </div>
                   <button onClick={() => deleteDoc(doc.id)} style={{
                     background: "transparent", border: `1px solid ${C.border}`,
