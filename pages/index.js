@@ -195,10 +195,10 @@ export default function App() {
   return (
     <div style={{ minHeight: "100vh", background: C.bg, color: C.text, fontFamily: "Georgia, serif", display: "flex", flexDirection: "column" }}>
       <div style={{ background: C.surface, borderBottom: `1px solid ${C.border}`, padding: "18px 24px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-        <div>
-          <div style={{ fontSize: 20, letterSpacing: 3, color: C.gold }}>ROSE & FUNK</div>
-          <div style={{ fontSize: 11, color: C.dim, letterSpacing: 2, marginTop: 2 }}>STUDIO ASSISTANT</div>
-        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+  <img src="/logo.png" alt="Rose & Funk" style={{ height: 48, objectFit: "contain" }} />
+  <div style={{ fontSize: 11, color: C.dim, letterSpacing: 2 }}>STUDIO ASSISTANT</div>
+</div>
         <div style={{ display: "flex", gap: 8 }}>
           {TABS.map(t => (
             <button key={t} onClick={() => setTab(t)} style={{
