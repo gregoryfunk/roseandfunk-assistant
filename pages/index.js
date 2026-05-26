@@ -1,49 +1,19 @@
 import { useState, useEffect, useRef } from "react";
 
-const TABS = ["Chat", "Knowledge Base", "Procedures"];
+const TABS = ["Chat", "Knowledge Base", "Documents", "Procedures"];
 
 const C = {
   bg: "#0f0e0c", surface: "#1a1814", border: "#2a2620",
   gold: "#c8a96e", text: "#f0ebe3", muted: "#d4cdc4",
-  dim: "#8a7a65", faint: "#3a3028"
+  dim: "#8a7a65", faint: "#3a3028", red: "#c0614a"
 };
-
-const DEFAULT_KNOWLEDGE = `BUSINESS NAME: Rose and Funk Interiors Inc. (Rose & Funk)
-WEBSITE: www.roseandfunk.com | ESTABLISHED: 1999
-LOCATION: #100 - 9220 Glover Road, Fort Langley, BC
-EMAIL: info@roseandfunk.com | ACCOUNTING: accounting@roseandfunk.com
-PHONE: 604.513.9118 | HOURS: 9am–4pm Mon–Fri
-AESTHETIC: "Approachable Luxury that is Contemporary and Timeless"
-
-TEAM:
-- GREGORY FUNK — Creative Director + Founder
-- JENNY GRIFFITHS — Office Manager. jenny@roseandfunk.com | 604.513.9118
-
-TAGLINE: "We create spaces that seamlessly blend style and sophistication with comfort and livability."
-
-MAIN SERVICES:
-1. Full Scope Construction Design Process (new builds + full renovations)
-2. Decorating & Furniture Design Service
-
-CLIENT PROCESS:
-1. Initial inquiry / discovery call
-2. Proposal & contract signing
-3. Design deposit collected
-4. Site survey / measurements
-5. Concept development & mood boards
-6. Client presentation & revisions
-7. Final design approval
-8. Procurement & ordering
-9. Installation / styling day
-10. Project wrap-up & follow-up`;
 
 const PROCEDURES = [
   {
     category: "Client Management",
     items: [
       {
-        title: "New Client Inquiry",
-        owner: "JENNY",
+        title: "New Client Inquiry", owner: "JENNY",
         steps: [
           { text: "Respond to inquiry within 24 business hours", owner: "JENNY" },
           { text: "Send introductory email with studio overview and next steps", owner: "JENNY" },
@@ -54,8 +24,7 @@ const PROCEDURES = [
         ]
       },
       {
-        title: "Onboarding a New Client",
-        owner: "JENNY + GREGORY",
+        title: "Onboarding a New Client", owner: "JENNY + GREGORY",
         steps: [
           { text: "Send contract for e-signature", owner: "JENNY" },
           { text: "Collect signed contract and design deposit before any work begins", owner: "JENNY" },
@@ -66,8 +35,7 @@ const PROCEDURES = [
         ]
       },
       {
-        title: "Handling a Client Complaint",
-        owner: "GREGORY",
+        title: "Handling a Client Complaint", owner: "GREGORY",
         steps: [
           { text: "Acknowledge the issue promptly — same day if possible", owner: "GREGORY" },
           { text: "Listen fully before responding — do not get defensive", owner: "GREGORY" },
@@ -83,8 +51,7 @@ const PROCEDURES = [
     category: "Design Process",
     items: [
       {
-        title: "Concept Development",
-        owner: "DESIGNER + GREGORY",
+        title: "Concept Development", owner: "DESIGNER + GREGORY",
         steps: [
           { text: "Review client intake notes, inspiration images, and brief", owner: "DESIGNER" },
           { text: "Develop 1–2 concept directions (mood board + palette)", owner: "DESIGNER" },
@@ -94,8 +61,7 @@ const PROCEDURES = [
         ]
       },
       {
-        title: "Client Design Presentation",
-        owner: "GREGORY",
+        title: "Client Design Presentation", owner: "GREGORY",
         steps: [
           { text: "Schedule in-person or video presentation", owner: "JENNY" },
           { text: "Walk through concept, mood board, and key selections", owner: "GREGORY" },
@@ -106,8 +72,7 @@ const PROCEDURES = [
         ]
       },
       {
-        title: "Procurement & Ordering",
-        owner: "JENNY + DESIGNER",
+        title: "Procurement & Ordering", owner: "JENNY + DESIGNER",
         steps: [
           { text: "Confirm final selections are client-approved in writing", owner: "GREGORY" },
           { text: "Collect procurement deposit if not already received", owner: "JENNY" },
@@ -123,8 +88,7 @@ const PROCEDURES = [
     category: "Operations",
     items: [
       {
-        title: "Weekly Team Check-In",
-        owner: "GREGORY",
+        title: "Weekly Team Check-In", owner: "GREGORY",
         steps: [
           { text: "Review active project statuses", owner: "ALL" },
           { text: "Flag any client issues or urgent items", owner: "ALL" },
@@ -145,19 +109,33 @@ const ownerColor = (owner = "") => {
   return "#8a8a8a";
 };
 
+const api = (body) => fetch("/api/chat", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify(body)
+}).then(r => r.json());
+
 export default function App() {
   const [tab, setTab] = useState("Chat");
-  const [knowledge, setKnowledge] = useState(DEFAULT_KNOWLEDGE);
-  const [addText, setAddText] = useState("");
   const [messages, setMessages] = useState([{
     role: "assistant",
-    content: "Hi! I'm your Rose & Funk business assistant. Ask me anything about your processes, client situations, or how to handle day-to-day operations — or browse the Procedures tab for step-by-step references."
+    content: "Hi! I'm your Rose & Funk business assistant. Ask me anything about your processes, client situations, or how to handle day-to-day operations — or browse the tabs for references and documents."
   }]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
-  const [saveMsg, setSaveMsg] = useState("");
+  const [knowledge, setKnowledge] = useState("");
+  const [kbStatus, setKbStatus] = useState("");
+  const [documents, setDocuments] = useState([]);
+  const [uploading, setUploading] = useState(false);
   const [expandedProc, setExpandedProc] = useState(null);
+  const [saveMsg, setSaveMsg] = useState("");
   const bottomRef = useRef(null);
+  const fileRef = useRef(null);
+
+  useEffect(() => {
+    api({ action: "load_knowledge" }).then(d => { if (d.content) setKnowledge(d.content); });
+    api({ action: "load_documents" }).then(d => { if (d.documents) setDocuments(d.documents); });
+  }, []);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -171,12 +149,7 @@ export default function App() {
     setInput("");
     setLoading(true);
     try {
-      const res = await fetch("/api/chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages: updated, knowledge })
-      });
-      const data = await res.json();
+      const data = await api({ messages: updated });
       setMessages([...updated, { role: "assistant", content: data.reply || "Sorry, no response." }]);
     } catch {
       setMessages([...updated, { role: "assistant", content: "Something went wrong. Please try again." }]);
@@ -184,18 +157,40 @@ export default function App() {
     setLoading(false);
   };
 
-  const saveToKnowledge = (content) => {
-    setKnowledge(k => k + "\n\n" + content);
+  const saveKnowledge = async () => {
+    setKbStatus("Saving…");
+    const data = await api({ action: "save_knowledge", content: knowledge });
+    setKbStatus(data.success ? "Saved!" : "Error saving.");
+    setTimeout(() => setKbStatus(""), 2500);
+  };
+
+  const saveToKnowledge = async (content) => {
+    const merged = knowledge + "\n\n" + content;
+    setKnowledge(merged);
+    await api({ action: "save_knowledge", content: merged });
     setSaveMsg("Saved to Knowledge Base!");
     setTimeout(() => setSaveMsg(""), 2500);
   };
 
-  const saveKnowledge = () => {
-    const merged = knowledge + (addText.trim() ? "\n\n" + addText.trim() : "");
-    setKnowledge(merged);
-    setAddText("");
-    setSaveMsg("Saved!");
-    setTimeout(() => setSaveMsg(""), 2500);
+  const handleFileUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    setUploading(true);
+    const reader = new FileReader();
+    reader.onload = async (ev) => {
+      const text = ev.target.result;
+      await api({ action: "save_document", name: file.name, text });
+      const d = await api({ action: "load_documents" });
+      if (d.documents) setDocuments(d.documents);
+      setUploading(false);
+    };
+    reader.readAsText(file);
+    e.target.value = "";
+  };
+
+  const deleteDoc = async (id) => {
+    await api({ action: "delete_document", id });
+    setDocuments(docs => docs.filter(d => d.id !== id));
   };
 
   return (
@@ -205,7 +200,7 @@ export default function App() {
           <img src="/logo.png" alt="Rose & Funk" style={{ height: 48, objectFit: "contain" }} />
           <div style={{ fontSize: 11, color: C.dim, letterSpacing: 2 }}>STUDIO ASSISTANT</div>
         </div>
-        <div style={{ display: "flex", gap: 8 }}>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
           {TABS.map(t => (
             <button key={t} onClick={() => setTab(t)} style={{
               background: tab === t ? C.gold : "transparent",
@@ -249,25 +244,21 @@ export default function App() {
             <div ref={bottomRef} />
           </div>
           <div style={{ padding: "16px 0 24px", display: "flex", gap: 10, alignItems: "flex-end" }}>
-            <textarea
-              value={input}
-              onChange={e => setInput(e.target.value)}
+            <textarea value={input} onChange={e => setInput(e.target.value)}
               onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } }}
               placeholder="Ask anything about Rose & Funk operations, clients, or procedures…"
-              rows={3}
-              style={{
+              rows={3} style={{
                 flex: 1, background: C.surface, border: `1px solid ${C.border}`, borderRadius: 8,
                 color: C.text, padding: "12px 14px", fontSize: 14, resize: "none",
                 outline: "none", fontFamily: "Georgia, serif", lineHeight: 1.5
-              }}
-            />
+              }} />
             <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
               <button onClick={send} disabled={loading || !input.trim()} style={{
                 background: C.gold, color: C.bg, border: "none", borderRadius: 6,
                 padding: "10px 18px", cursor: "pointer", fontSize: 13, fontFamily: "Georgia, serif",
                 opacity: loading || !input.trim() ? 0.5 : 1
               }}>Send</button>
-              <button onClick={() => setMessages([{ role: "assistant", content: "Hi! I'm your Rose & Funk business assistant. Ask me anything about your processes, client situations, or how to handle day-to-day operations — or browse the Procedures tab for step-by-step references." }])} style={{
+              <button onClick={() => setMessages([{ role: "assistant", content: "Hi! I'm your Rose & Funk business assistant. Ask me anything about your processes, client situations, or how to handle day-to-day operations — or browse the tabs for references and documents." }])} style={{
                 background: "transparent", color: C.dim, border: `1px solid ${C.border}`,
                 borderRadius: 6, padding: "8px 18px", cursor: "pointer", fontSize: 11, fontFamily: "Georgia, serif"
               }}>Clear</button>
@@ -278,31 +269,53 @@ export default function App() {
 
       {tab === "Knowledge Base" && (
         <div style={{ flex: 1, maxWidth: 800, width: "100%", margin: "0 auto", padding: "24px 16px", display: "flex", flexDirection: "column", gap: 20 }}>
-          <div>
-            <div style={{ fontSize: 11, letterSpacing: 2, color: C.dim, marginBottom: 10 }}>CURRENT KNOWLEDGE BASE</div>
-            <textarea value={knowledge} onChange={e => setKnowledge(e.target.value)} rows={18} style={{
-              width: "100%", background: C.surface, border: `1px solid ${C.border}`,
-              borderRadius: 8, color: C.text, padding: "14px", fontSize: 13,
-              fontFamily: "monospace", lineHeight: 1.6, resize: "vertical", outline: "none", boxSizing: "border-box"
-            }} />
-          </div>
-          <div>
-            <div style={{ fontSize: 11, letterSpacing: 2, color: C.dim, marginBottom: 10 }}>ADD TO KNOWLEDGE BASE</div>
-            <textarea value={addText} onChange={e => setAddText(e.target.value)}
-              placeholder="Add new info — team changes, vendor notes, pricing updates, policies…"
-              rows={5} style={{
-                width: "100%", background: C.surface, border: `1px solid ${C.border}`,
-                borderRadius: 8, color: C.text, padding: "14px", fontSize: 13,
-                fontFamily: "Georgia, serif", lineHeight: 1.6, resize: "vertical", outline: "none", boxSizing: "border-box"
-              }} />
-          </div>
+          <div style={{ fontSize: 11, letterSpacing: 2, color: C.dim }}>KNOWLEDGE BASE — saved to database, persists for all team members</div>
+          <textarea value={knowledge} onChange={e => setKnowledge(e.target.value)} rows={22} style={{
+            width: "100%", background: C.surface, border: `1px solid ${C.border}`,
+            borderRadius: 8, color: C.text, padding: "14px", fontSize: 13,
+            fontFamily: "monospace", lineHeight: 1.6, resize: "vertical", outline: "none", boxSizing: "border-box"
+          }} />
           <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
             <button onClick={saveKnowledge} style={{
               background: C.gold, color: C.bg, border: "none", borderRadius: 6,
               padding: "10px 22px", cursor: "pointer", fontSize: 13, fontFamily: "Georgia, serif"
             }}>Save Knowledge Base</button>
-            {saveMsg && <span style={{ color: C.gold, fontSize: 13 }}>{saveMsg}</span>}
+            {kbStatus && <span style={{ color: C.gold, fontSize: 13 }}>{kbStatus}</span>}
           </div>
+        </div>
+      )}
+
+      {tab === "Documents" && (
+        <div style={{ flex: 1, maxWidth: 800, width: "100%", margin: "0 auto", padding: "24px 16px", display: "flex", flexDirection: "column", gap: 20 }}>
+          <div style={{ fontSize: 11, letterSpacing: 2, color: C.dim }}>UPLOADED DOCUMENTS — the AI reads these automatically</div>
+          <div
+            onClick={() => fileRef.current?.click()}
+            style={{
+              border: `2px dashed ${C.border}`, borderRadius: 8, padding: "32px",
+              textAlign: "center", cursor: "pointer", color: C.dim, fontSize: 14
+            }}>
+            {uploading ? "Uploading…" : "Click to upload a file (TXT, CSV, or PDF text)"}
+            <input ref={fileRef} type="file" accept=".txt,.csv,.md" onChange={handleFileUpload} style={{ display: "none" }} />
+          </div>
+          {documents.length === 0 ? (
+            <div style={{ color: C.dim, fontSize: 13, textAlign: "center" }}>No documents uploaded yet.</div>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              {documents.map(doc => (
+                <div key={doc.id} style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 8, padding: "14px 18px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <div>
+                    <div style={{ fontSize: 14, color: C.text }}>{doc.name}</div>
+                    <div style={{ fontSize: 11, color: C.dim, marginTop: 3 }}>{doc.content.length.toLocaleString()} characters</div>
+                  </div>
+                  <button onClick={() => deleteDoc(doc.id)} style={{
+                    background: "transparent", border: `1px solid ${C.border}`,
+                    borderRadius: 4, color: C.red, fontSize: 11, padding: "4px 12px",
+                    cursor: "pointer", fontFamily: "Georgia, serif"
+                  }}>Delete</button>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
 
