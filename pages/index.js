@@ -1403,16 +1403,55 @@ const ScheduleTab = () => {
     setTimeout(() => setCopied(false), 2500);
   };
 
-  const inputStyle = { background: C.bg, border: `1px solid ${C.border}`, borderRadius: 6, color: C.text, padding: "10px 14px", fontSize: 14, outline: "none", fontFamily: "'Archivo', sans-serif" };
+  const [revisionInput, setRevisionInput] = useState("");
+  const [revisionLoading, setRevisionLoading] = useState(false);
+  const [revisionMessages, setRevisionMessages] = useState([]);
+
+  const sendRevision = async () => {
+    if (!revisionInput.trim() || revisionLoading) return;
+    const msg = revisionInput.trim();
+    setRevisionInput("");
+    setRevisionLoading(true);
+    const newMessages = [...revisionMessages, { role: "user", text: msg }];
+    setRevisionMessages(newMessages);
+
+    try {
+      const res = await fetch("/api/schedule", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "revise_schedule",
+          clientName: clientName.trim(),
+          projectType,
+          contractDate,
+          events,
+          revision: msg,
+        })
+      });
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+      if (data.schedule) {
+        const parsed = data.schedule.map(ev => ({
+          ...ev,
+          date: ev.date ? new Date(ev.date) : null,
+          startTime: ev.date && ev.startTime ? new Date(`${ev.date}T${ev.startTime}`) : null,
+          endTime: ev.date && ev.endTime ? new Date(`${ev.date}T${ev.endTime}`) : null,
+          options: (ev.options || []).map(o => new Date(o)),
+          selectedOption: ev.selectedOption || 0,
+        }));
+        setEvents(parsed);
+      }
+      setRevisionMessages([...newMessages, { role: "assistant", text: data.message || "Schedule updated." }]);
+    } catch (err) {
+      setRevisionMessages([...newMessages, { role: "assistant", text: `Sorry, couldn't apply that revision: ${err.message}` }]);
+    }
+    setRevisionLoading(false);
+  };
+
+  const schedInputStyle = { background: C.bg, border: `1px solid ${C.border}`, borderRadius: 6, color: C.text, padding: "10px 14px", fontSize: 14, outline: "none", fontFamily: "'Archivo', sans-serif" };
   const phases = events.length > 0 ? [...new Set(events.map(e => e.phase).filter(Boolean))] : [];
 
   return (
-    <div style={{ flex: 1, maxWidth: 960, width: "100%", margin: "0 auto", padding: "24px 16px", overflowY: "auto" }}>
-
-      {step === "setup" && (
-        <div style={{ maxWidth: 500 }}>
-          <div style={{ fontSize: 11, letterSpacing: 2, color: C.dim, marginBottom: 20 }}>NEW PROJECT SCHEDULE</div>
-          {error && <div style={{ background: C.red + "22", border: `1px solid ${C.red}`, borderRadius: 6, padding: "10px 14px", fontSize: 13, color: C.red, marginBottom: 16 }}>{error}</div>}
 
           <div style={{ marginBottom: 14 }}>
             <div style={{ fontSize: 11, color: C.dim, marginBottom: 6, letterSpacing: 1 }}>PROJECT TYPE</div>
@@ -1431,12 +1470,12 @@ const ScheduleTab = () => {
 
           <div style={{ marginBottom: 14 }}>
             <div style={{ fontSize: 11, color: C.dim, marginBottom: 6, letterSpacing: 1 }}>CLIENT NAME</div>
-            <input value={clientName} onChange={e => setClientName(e.target.value)} placeholder="e.g. Smith Family" style={{ ...inputStyle, width: "100%", boxSizing: "border-box" }} />
+            <input value={clientName} onChange={e => setClientName(e.target.value)} placeholder="e.g. Smith Family" style={{ ...schedInputStyle, width: "100%", boxSizing: "border-box" }} />
           </div>
 
           <div style={{ marginBottom: 24 }}>
             <div style={{ fontSize: 11, color: C.dim, marginBottom: 6, letterSpacing: 1 }}>CONTRACT SIGNED DATE</div>
-            <input type="date" value={contractDate} onChange={e => setContractDate(e.target.value)} style={{ ...inputStyle, width: "100%", boxSizing: "border-box" }} />
+            <input type="date" value={contractDate} onChange={e => setContractDate(e.target.value)} style={{ ...schedInputStyle, width: "100%", boxSizing: "border-box" }} />
           </div>
 
           <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 8, padding: "14px 16px", marginBottom: 20, fontSize: 12, color: C.dim, lineHeight: 1.6 }}>
@@ -1607,6 +1646,53 @@ const ScheduleTab = () => {
               </button>
             </div>
           )}
+
+          {/* Revision chat */}
+          <div style={{ marginTop: 32, borderTop: `1px solid ${C.border}`, paddingTop: 20 }}>
+            <div style={{ fontSize: 11, letterSpacing: 2, color: C.dim, marginBottom: 14 }}>SCHEDULE REVISIONS</div>
+            <div style={{ fontSize: 12, color: C.dim, marginBottom: 14 }}>
+              Ask me to adjust any dates — e.g. "Move the Initial Meeting to the week of June 23" or "Client can't do Thursdays"
+            </div>
+
+            {revisionMessages.length > 0 && (
+              <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 14 }}>
+                {revisionMessages.map((m, i) => (
+                  <div key={i} style={{ display: "flex", justifyContent: m.role === "user" ? "flex-end" : "flex-start" }}>
+                    <div style={{
+                      maxWidth: "80%", padding: "10px 14px", borderRadius: 8, fontSize: 13, lineHeight: 1.5,
+                      background: m.role === "user" ? C.gold : C.surface,
+                      color: m.role === "user" ? C.bg : C.text,
+                      border: m.role === "assistant" ? `1px solid ${C.border}` : "none"
+                    }}>{m.text}</div>
+                  </div>
+                ))}
+                {revisionLoading && (
+                  <div style={{ display: "flex", justifyContent: "flex-start" }}>
+                    <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 8, padding: "10px 14px", color: C.dim, fontSize: 13 }}>Updating schedule…</div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            <div style={{ display: "flex", gap: 8 }}>
+              <input
+                value={revisionInput}
+                onChange={e => setRevisionInput(e.target.value)}
+                onKeyDown={e => { if (e.key === "Enter") sendRevision(); }}
+                placeholder="e.g. Move the Furniture Meeting to July 8…"
+                style={{ ...schedInputStyle, flex: 1 }}
+              />
+              <button
+                onClick={sendRevision}
+                disabled={revisionLoading || !revisionInput.trim()}
+                style={{
+                  background: C.gold, color: C.bg, border: "none", borderRadius: 6,
+                  padding: "10px 18px", cursor: "pointer", fontSize: 13,
+                  fontFamily: "'Playfair Display', serif", letterSpacing: 1,
+                  opacity: revisionLoading || !revisionInput.trim() ? 0.5 : 1
+                }}>Send</button>
+            </div>
+          </div>
         </>
         );
       })()}
