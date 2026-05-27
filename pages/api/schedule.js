@@ -7,8 +7,11 @@ GLOBAL RULES:
 - Big presentations (4hr meetings): 11am or 13:00 start, never later than 14:00
 - Design blocks (Gregory off): 09:00-17:00
 - All times are America/Vancouver (Pacific)
-- Designers for ID Construction: Chloe + Stephanie
-- Designer for Furnishings: Lillian
+- IMPORTANT: Only ONE designer is assigned per project. Use that designer's name in all event notes (e.g. "Gregory + Chloe + Client" not "Gregory + Designer + Client").
+- The assigned designer will be specified in the prompt. Use their actual name throughout.
+- ID Construction designers available: Chloe or Stephanie (ONE designer per project, not both)
+- Furnishings designers available: Lillian
+
 
 ID CONSTRUCTION SCHEDULE SEQUENCE (42 days / 8.5 weeks):
 PRE-DESIGN:
@@ -105,7 +108,7 @@ RESPOND ONLY WITH VALID JSON - no markdown, no explanation, just the JSON object
       "startTime": "HH:MM",
       "endTime": "HH:MM",
       "days": 1,
-      "notes": "Gregory + Designer + Client · X hrs · notes",
+      "notes": "Gregory + [Assigned Designer] + Client · X hrs · notes",
       "options": ["YYYY-MM-DD", "YYYY-MM-DD", "YYYY-MM-DD"],
       "selectedOption": 0
     },
@@ -125,17 +128,20 @@ RESPOND ONLY WITH VALID JSON - no markdown, no explanation, just the JSON object
 export default async function handler(req, res) {
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
 
-  const { action, clientName, projectType, contractDate, events, revision } = req.body;
+  const { action, clientName, projectType, contractDate, events, revision, designer } = req.body;
 
   if (action === "generate_schedule") {
     try {
+      const assignedDesigner = designer || (projectType === "furnishings" ? "Lillian" : "Chloe");
       const prompt = `Contract signed: ${contractDate}
 Client name: ${clientName}
 Project type: ${projectType === "id" ? "ID Construction (Large Project)" : "Furnishings"}
+Assigned designer: ${assignedDesigner}
 Today's date: ${new Date().toISOString().split("T")[0]}
 
 Generate the complete project schedule starting from the contract date.
 Work strictly through the phase sequence for this project type.
+IMPORTANT: Only ONE designer (${assignedDesigner}) is assigned to this project. Use their name in all event notes.
 Never schedule anything on a Monday.
 For big presentations (4hr meetings) always use 11:00 or 13:00 start times. Friday is preferred but Tuesday-Friday are all acceptable.
 For 1.5-2hr meetings use 10:00 or 11:00 start times.
@@ -235,21 +241,26 @@ Return the complete JSON schedule.`;
 
   if (action === "revise_schedule") {
     try {
-      const currentSchedule = JSON.stringify(events || [], null, 2);
-      const prompt = `Current schedule for ${clientName} (${projectType}):
+      // Slim down the schedule to just phase, label, date, type for context
+      const slim = (events || []).map(ev => ({
+        phase: ev.phase,
+        type: ev.type,
+        label: ev.label,
+        date: ev.date,
+        startTime: ev.startTime,
+        endTime: ev.endTime,
+        days: ev.days,
+      }));
+      const currentSchedule = JSON.stringify(slim, null, 2);
+      const prompt = `Current schedule for ${clientName} (${projectType === "id" ? "ID Construction" : "Furnishings"}), designer: ${designer || "assigned designer"}:
 ${currentSchedule}
 
 Jenny's revision request: "${revision}"
 
-Apply the requested changes to the schedule. Keep all events that aren't affected.
-Maintain all scheduling rules (no Mondays, correct phase sequence, presentation times).
-Return the complete updated schedule JSON plus a brief plain-English message explaining what you changed.
-
-Respond with JSON:
-{
-  "message": "Brief description of what changed",
-  "schedule": [ ...complete updated schedule... ]
-}`;
+Apply ONLY the requested changes. Keep all other events exactly as they are.
+Rules: no Mondays, presentations at 11:00 or 13:00, no later than 14:00.
+Return compact JSON (no extra whitespace) with a brief message:
+{"message":"What changed","schedule":[...all events with same structure...]}`;
 
       const response = await fetch("https://api.anthropic.com/v1/messages", {
         method: "POST",
@@ -260,7 +271,7 @@ Respond with JSON:
         },
         body: JSON.stringify({
           model: "claude-sonnet-4-5",
-          max_tokens: 4000,
+          max_tokens: 3000,
           system: SCHEDULE_RULES,
           messages: [{ role: "user", content: prompt }],
         }),
@@ -273,11 +284,20 @@ Respond with JSON:
       let result;
       try {
         const clean = text.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
-        result = JSON.parse(clean);
+        // Try to extract just the JSON object
+        const start = clean.indexOf('{');
+        const end = clean.lastIndexOf('}');
+        const jsonStr = start >= 0 && end > start ? clean.slice(start, end + 1) : clean;
+        result = JSON.parse(jsonStr);
       } catch (e) {
-        const match = text.match(/\{[\s\S]*\}/);
-        if (match) result = JSON.parse(match[0]);
-        else throw new Error("Could not parse revised schedule");
+        // If full parse fails, try to extract schedule array directly
+        const schedMatch = text.match(/"schedule"\s*:\s*(\[[\s\S]*?\])/);
+        const msgMatch = text.match(/"message"\s*:\s*"([^"]+)"/);
+        if (schedMatch) {
+          result = { schedule: JSON.parse(schedMatch[1]), message: msgMatch ? msgMatch[1] : "Schedule updated." };
+        } else {
+          throw new Error("Could not parse revised schedule: " + e.message);
+        }
       }
 
       return res.status(200).json({
