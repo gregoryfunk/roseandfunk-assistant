@@ -125,7 +125,7 @@ RESPOND ONLY WITH VALID JSON - no markdown, no explanation, just the JSON object
 export default async function handler(req, res) {
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
 
-  const { action, clientName, projectType, contractDate, events } = req.body;
+  const { action, clientName, projectType, contractDate, events, revision } = req.body;
 
   if (action === "generate_schedule") {
     try {
