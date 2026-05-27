@@ -1452,6 +1452,12 @@ const ScheduleTab = () => {
   const phases = events.length > 0 ? [...new Set(events.map(e => e.phase).filter(Boolean))] : [];
 
   return (
+    <div style={{ flex: 1, maxWidth: 960, width: "100%", margin: "0 auto", padding: "24px 16px", overflowY: "auto" }}>
+
+      {step === "setup" && (
+        <div style={{ maxWidth: 500 }}>
+          <div style={{ fontSize: 11, letterSpacing: 2, color: C.dim, marginBottom: 20 }}>NEW PROJECT SCHEDULE</div>
+          {error && <div style={{ background: C.red + "22", border: `1px solid ${C.red}`, borderRadius: 6, padding: "10px 14px", fontSize: 13, color: C.red, marginBottom: 16 }}>{error}</div>}
 
           <div style={{ marginBottom: 14 }}>
             <div style={{ fontSize: 11, color: C.dim, marginBottom: 6, letterSpacing: 1 }}>PROJECT TYPE</div>
