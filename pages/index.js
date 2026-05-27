@@ -1464,7 +1464,26 @@ const ScheduleTab = () => {
         </div>
       )}
 
-      {(step === "review" || step === "approved") && (
+      {(step === "review" || step === "approved") && (() => {
+        // Calculate total project length
+        const datesWithValues = events.filter(e => e.date).map(e => new Date(e.date));
+        const firstDate = datesWithValues.length > 0 ? new Date(Math.min(...datesWithValues)) : null;
+        // For last date, account for multi-day blocks
+        const lastDate = events.filter(e => e.date).reduce((latest, e) => {
+          let end = new Date(e.date);
+          if (e.days > 1) {
+            let added = 0;
+            while (added < e.days - 1) {
+              end.setDate(end.getDate() + 1);
+              if (end.getDay() !== 0 && end.getDay() !== 1) added++;
+            }
+          }
+          return end > latest ? end : latest;
+        }, new Date(0));
+        const totalDays = firstDate ? Math.round((lastDate - firstDate) / (1000 * 60 * 60 * 24)) : 0;
+        const totalWeeks = Math.round(totalDays / 7 * 10) / 10;
+
+        return (
         <>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 20, flexWrap: "wrap", gap: 12 }}>
             <div>
@@ -1472,6 +1491,22 @@ const ScheduleTab = () => {
               <div style={{ fontSize: 12, color: C.dim, marginTop: 3 }}>
                 {projectType === "id" ? "ID Construction" : "Furnishings"} · Contract: {new Date(contractDate + "T12:00:00").toLocaleDateString("en-CA", { month: "long", day: "numeric", year: "numeric" })}
               </div>
+              {firstDate && lastDate > new Date(0) && (
+                <div style={{ display: "flex", gap: 16, marginTop: 10 }}>
+                  <div style={{ background: C.faint, borderRadius: 6, padding: "6px 12px", fontSize: 12 }}>
+                    <span style={{ color: C.dim }}>Start </span>
+                    <span style={{ color: C.text }}>{firstDate.toLocaleDateString("en-CA", { month: "short", day: "numeric", year: "numeric" })}</span>
+                  </div>
+                  <div style={{ background: C.faint, borderRadius: 6, padding: "6px 12px", fontSize: 12 }}>
+                    <span style={{ color: C.dim }}>End </span>
+                    <span style={{ color: C.text }}>{lastDate.toLocaleDateString("en-CA", { month: "short", day: "numeric", year: "numeric" })}</span>
+                  </div>
+                  <div style={{ background: C.gold + "33", border: `1px solid ${C.gold}`, borderRadius: 6, padding: "6px 12px", fontSize: 12 }}>
+                    <span style={{ color: C.dim }}>Total </span>
+                    <span style={{ color: C.gold, fontWeight: 600 }}>{totalWeeks} weeks</span>
+                  </div>
+                </div>
+              )}
             </div>
             <div style={{ display: "flex", gap: 8 }}>
               {step === "review" && (
@@ -1573,7 +1608,8 @@ const ScheduleTab = () => {
             </div>
           )}
         </>
-      )}
+        );
+      })()}
     </div>
   );
 };
