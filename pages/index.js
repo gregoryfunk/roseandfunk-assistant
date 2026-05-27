@@ -1326,29 +1326,245 @@ const ScheduleTab = () => {
   const [clientName, setClientName] = useState("");
   const [contractDate, setContractDate] = useState("");
   const [events, setEvents] = useState([]);
-  const [computed, setComputed] = useState([]);
-  const [step, setStep] = useState("setup"); // setup | review | approved
+  const [step, setStep] = useState("setup"); // setup | loading | review | finalizing | approved
   const [copied, setCopied] = useState(false);
+  const [error, setError] = useState("");
+  const [conflicts, setConflicts] = useState([]);
 
-  const generate = () => {
+  const generate = async () => {
     if (!clientName.trim() || !contractDate) return;
-    const raw = projectType === "id"
-      ? buildIDSchedule(clientName.trim(), contractDate)
-      : buildFurnishingsSchedule(clientName.trim(), contractDate);
-    setEvents(raw);
-    setComputed(computeDates(raw));
-    setStep("review");
+    setStep("loading");
+    setError("");
+    try {
+      const res = await fetch("/api/schedule", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "generate_schedule", clientName: clientName.trim(), projectType, contractDate })
+      });
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+      // Parse dates from strings
+      const parsed = (data.schedule || []).map(ev => ({
+        ...ev,
+        date: ev.date ? new Date(ev.date) : null,
+        startTime: ev.date && ev.startTime ? new Date(`${ev.date}T${ev.startTime}`) : null,
+        endTime: ev.date && ev.endTime ? new Date(`${ev.date}T${ev.endTime}`) : null,
+        options: (ev.options || []).map(o => new Date(o)),
+        selectedOption: ev.selectedOption || 0,
+      }));
+      setEvents(parsed);
+      setConflicts(data.conflicts || []);
+      setStep("review");
+    } catch (err) {
+      setError("Failed to generate schedule. Please try again.");
+      setStep("setup");
+    }
   };
 
   const selectOption = (idx, optionIdx) => {
-    const updated = events.map((ev, i) => i === idx ? { ...ev, selectedOption: optionIdx } : ev);
-    setEvents(updated);
-    setComputed(computeDates(updated));
+    setEvents(evs => evs.map((ev, i) => i === idx ? { ...ev, selectedOption: optionIdx, date: ev.options[optionIdx], startTime: withTime(ev.options[optionIdx], ev.startTime?.getHours() || 11), endTime: withTime(ev.options[optionIdx], ev.endTime?.getHours() || 13) } : ev));
   };
 
-  const approve = () => setStep("approved");
+  const approve = async () => {
+    setStep("finalizing");
+    try {
+      const res = await fetch("/api/schedule", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "finalize_schedule", clientName: clientName.trim(), projectType, contractDate, events })
+      });
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+      const parsed = (data.schedule || []).map(ev => ({
+        ...ev,
+        date: ev.date ? new Date(ev.date) : null,
+        startTime: ev.date && ev.startTime ? new Date(`${ev.date}T${ev.startTime}`) : null,
+        endTime: ev.date && ev.endTime ? new Date(`${ev.date}T${ev.endTime}`) : null,
+      }));
+      setEvents(parsed);
+      setStep("approved");
+    } catch (err) {
+      setError("Failed to finalize schedule. Please try again.");
+      setStep("review");
+    }
+  };
 
-  const reset = () => { setStep("setup"); setClientName(""); setContractDate(""); setEvents([]); setComputed([]); };
+  const reset = () => { setStep("setup"); setClientName(""); setContractDate(""); setEvents([]); setConflicts([]); setError(""); };
+
+  const copyAll = () => {
+    const text = events.map(ev => {
+      if (!ev.date) return "";
+      const dateStr = fmtDate(ev.date);
+      const timeStr = ev.startTime && ev.endTime ? `${fmtTime(ev.startTime)} – ${fmtTime(ev.endTime)}` : "";
+      return `${ev.phase?.toUpperCase()} | ${ev.label}\n${dateStr}${ev.days > 1 ? ` (${ev.days} days)` : ""} · ${timeStr}\n${ev.notes || ""}\n`;
+    }).filter(Boolean).join("\n");
+    navigator.clipboard.writeText(text);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2500);
+  };
+
+  const inputStyle = { background: C.bg, border: `1px solid ${C.border}`, borderRadius: 6, color: C.text, padding: "10px 14px", fontSize: 14, outline: "none", fontFamily: "'Archivo', sans-serif" };
+  const phases = events.length > 0 ? [...new Set(events.map(e => e.phase).filter(Boolean))] : [];
+
+  return (
+    <div style={{ flex: 1, maxWidth: 960, width: "100%", margin: "0 auto", padding: "24px 16px", overflowY: "auto" }}>
+
+      {step === "setup" && (
+        <div style={{ maxWidth: 500 }}>
+          <div style={{ fontSize: 11, letterSpacing: 2, color: C.dim, marginBottom: 20 }}>NEW PROJECT SCHEDULE</div>
+          {error && <div style={{ background: C.red + "22", border: `1px solid ${C.red}`, borderRadius: 6, padding: "10px 14px", fontSize: 13, color: C.red, marginBottom: 16 }}>{error}</div>}
+
+          <div style={{ marginBottom: 14 }}>
+            <div style={{ fontSize: 11, color: C.dim, marginBottom: 6, letterSpacing: 1 }}>PROJECT TYPE</div>
+            <div style={{ display: "flex", gap: 8 }}>
+              {[["id", "ID Construction"], ["furnishings", "Furnishings"]].map(([val, label]) => (
+                <button key={val} onClick={() => setProjectType(val)} style={{
+                  flex: 1, padding: "10px", borderRadius: 6, cursor: "pointer",
+                  fontFamily: "'Playfair Display', serif", fontSize: 13, letterSpacing: 1,
+                  background: projectType === val ? C.gold : C.surface,
+                  color: projectType === val ? C.bg : C.muted,
+                  border: `1px solid ${projectType === val ? C.gold : C.border}`
+                }}>{label.toUpperCase()}</button>
+              ))}
+            </div>
+          </div>
+
+          <div style={{ marginBottom: 14 }}>
+            <div style={{ fontSize: 11, color: C.dim, marginBottom: 6, letterSpacing: 1 }}>CLIENT NAME</div>
+            <input value={clientName} onChange={e => setClientName(e.target.value)} placeholder="e.g. Smith Family" style={{ ...inputStyle, width: "100%", boxSizing: "border-box" }} />
+          </div>
+
+          <div style={{ marginBottom: 24 }}>
+            <div style={{ fontSize: 11, color: C.dim, marginBottom: 6, letterSpacing: 1 }}>CONTRACT SIGNED DATE</div>
+            <input type="date" value={contractDate} onChange={e => setContractDate(e.target.value)} style={{ ...inputStyle, width: "100%", boxSizing: "border-box" }} />
+          </div>
+
+          <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 8, padding: "14px 16px", marginBottom: 20, fontSize: 12, color: C.dim, lineHeight: 1.6 }}>
+            <div style={{ color: C.text, marginBottom: 4, fontSize: 13 }}>📅 Calendar-aware scheduling</div>
+            Claude will check your calendar for conflicts and propose dates that work — no Mondays, presentations on Fridays where possible, design blocks protected.
+          </div>
+
+          <button onClick={generate} disabled={!clientName.trim() || !contractDate} style={{
+            background: C.gold, color: C.bg, border: "none", borderRadius: 6,
+            padding: "12px 28px", cursor: "pointer", fontSize: 13,
+            fontFamily: "'Playfair Display', serif", letterSpacing: 1,
+            opacity: !clientName.trim() || !contractDate ? 0.5 : 1, width: "100%"
+          }}>GENERATE SCHEDULE →</button>
+        </div>
+      )}
+
+      {(step === "loading" || step === "finalizing") && (
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "80px 0", gap: 16 }}>
+          <div style={{ fontSize: 13, color: C.dim, letterSpacing: 2 }}>
+            {step === "loading" ? "CHECKING CALENDAR + BUILDING SCHEDULE…" : "FINALIZING SCHEDULE…"}
+          </div>
+          <div style={{ fontSize: 12, color: C.dim }}>
+            {step === "loading" ? `Planning ${projectType === "id" ? "ID Construction" : "Furnishings"} project for ${clientName}` : "Placing all design blocks around confirmed meetings"}
+          </div>
+        </div>
+      )}
+
+      {(step === "review" || step === "approved") && (
+        <>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 20, flexWrap: "wrap", gap: 12 }}>
+            <div>
+              <div style={{ fontSize: 18, color: C.text, fontFamily: "'Playfair Display', serif" }}>{clientName}</div>
+              <div style={{ fontSize: 12, color: C.dim, marginTop: 3 }}>
+                {projectType === "id" ? "ID Construction" : "Furnishings"} · Contract: {new Date(contractDate + "T12:00:00").toLocaleDateString("en-CA", { month: "long", day: "numeric", year: "numeric" })}
+              </div>
+            </div>
+            <div style={{ display: "flex", gap: 8 }}>
+              {step === "review" && (
+                <button onClick={approve} style={{ background: C.gold, color: C.bg, border: "none", borderRadius: 6, padding: "9px 20px", cursor: "pointer", fontSize: 12, fontFamily: "'Playfair Display', serif", letterSpacing: 1 }}>
+                  ✓ APPROVE SCHEDULE
+                </button>
+              )}
+              {step === "approved" && (
+                <button onClick={copyAll} style={{ background: C.gold, color: C.bg, border: "none", borderRadius: 6, padding: "9px 20px", cursor: "pointer", fontSize: 12, fontFamily: "'Playfair Display', serif", letterSpacing: 1 }}>
+                  {copied ? "✓ COPIED!" : "COPY ALL EVENTS"}
+                </button>
+              )}
+              <button onClick={reset} style={{ background: "transparent", border: `1px solid ${C.border}`, borderRadius: 6, color: C.dim, padding: "9px 16px", cursor: "pointer", fontSize: 12, fontFamily: "'Archivo', sans-serif" }}>New Schedule</button>
+            </div>
+          </div>
+
+          {conflicts.length > 0 && (
+            <div style={{ background: "#a0896a22", border: "1px solid #a0896a", borderRadius: 8, padding: "12px 16px", marginBottom: 16, fontSize: 12, color: "#a0896a" }}>
+              <div style={{ fontWeight: 600, marginBottom: 6 }}>⚠ Conflicts noted — dates adjusted:</div>
+              {conflicts.map((c, i) => <div key={i}>· {c}</div>)}
+            </div>
+          )}
+
+          {step === "approved" && (
+            <div style={{ background: "#7a9e8e22", border: "1px solid #7a9e8e", borderRadius: 8, padding: "14px 18px", marginBottom: 20, fontSize: 13, color: "#7a9e8e" }}>
+              ✓ Schedule approved! All design blocks have been placed. Copy all events to add to Google Calendar.
+            </div>
+          )}
+
+          {phases.map(phase => (
+            <div key={phase} style={{ marginBottom: 28 }}>
+              <div style={{ fontSize: 10, letterSpacing: 3, color: PHASE_COLORS[phase] || C.gold, marginBottom: 10 }}>{phase?.toUpperCase()}</div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                {events.filter(e => e.phase === phase).map((ev, evIdx) => {
+                  const globalIdx = events.indexOf(ev);
+                  const phaseColor = PHASE_COLORS[phase] || C.gold;
+                  return (
+                    <div key={evIdx} style={{ background: C.surface, border: `1px solid ${ev.type === "meeting" ? phaseColor : C.border}`, borderRadius: 8, overflow: "hidden" }}>
+                      <div style={{ display: "flex" }}>
+                        <div style={{ width: 4, background: ev.type === "meeting" ? phaseColor : C.faint, flexShrink: 0 }} />
+                        <div style={{ flex: 1, padding: "12px 16px" }}>
+                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 8 }}>
+                            <div>
+                              <div style={{ fontSize: 13, color: C.text, fontWeight: 500 }}>{ev.label}</div>
+                              <div style={{ fontSize: 11, color: C.dim, marginTop: 3 }}>{ev.notes}</div>
+                            </div>
+                            <div style={{ textAlign: "right", flexShrink: 0 }}>
+                              {ev.date && <div style={{ fontSize: 13, color: ev.type === "meeting" ? phaseColor : C.muted, fontWeight: 500 }}>{fmtDate(ev.date)}</div>}
+                              {ev.startTime && ev.endTime && (
+                                <div style={{ fontSize: 11, color: C.dim, marginTop: 2 }}>
+                                  {ev.days > 1 ? `${ev.days} days · ` : ""}{fmtTime(ev.startTime)} – {fmtTime(ev.endTime)}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+
+                          {step === "review" && ev.type === "meeting" && ev.options && ev.options.length > 0 && (
+                            <div style={{ marginTop: 10 }}>
+                              <div style={{ fontSize: 10, color: C.dim, letterSpacing: 1, marginBottom: 6 }}>CHOOSE DATE:</div>
+                              <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                                {ev.options.map((opt, oi) => (
+                                  <button key={oi} onClick={() => selectOption(globalIdx, oi)} style={{
+                                    background: ev.selectedOption === oi ? phaseColor : C.faint,
+                                    color: ev.selectedOption === oi ? "#fff" : C.muted,
+                                    border: `1px solid ${ev.selectedOption === oi ? phaseColor : C.border}`,
+                                    borderRadius: 6, padding: "6px 14px", cursor: "pointer",
+                                    fontSize: 12, fontFamily: "'Archivo', sans-serif"
+                                  }}>{fmtDate(opt)}</button>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+
+          {step === "review" && (
+            <div style={{ marginTop: 8, paddingTop: 20, borderTop: `1px solid ${C.border}`, display: "flex", justifyContent: "center" }}>
+              <button onClick={approve} style={{ background: C.gold, color: C.bg, border: "none", borderRadius: 6, padding: "13px 40px", cursor: "pointer", fontSize: 13, fontFamily: "'Playfair Display', serif", letterSpacing: 1 }}>
+                ✓ APPROVE SCHEDULE
+              </button>
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
+};
 
   const copyAll = () => {
     const text = computed.map(ev => {
