@@ -51,8 +51,6 @@ const PHASES = [
   { label: "Phase 5", pct: 0.125 },
 ];
 
-const MIN_FEE = 0;
-
 const fmt = (n) => n.toLocaleString("en-CA", { style: "currency", currency: "CAD", maximumFractionDigits: 0 });
 
 const PROCEDURES = [
@@ -226,27 +224,148 @@ const ClarifyingMessage = ({ data, onAnswer }) => {
 
 const Estimator = () => {
   const [qtys, setQtys] = useState({});
-  const setQty = (id, val) => setQtys(q => ({ ...q, [id]: Math.max(0, parseInt(val) || 0) }));
+  const [clientName, setClientName] = useState("");
+  const [savedEstimates, setSavedEstimates] = useState([]);
+  const [saveStatus, setSaveStatus] = useState("");
+  const [showSaved, setShowSaved] = useState(false);
+  const printRef = useRef(null);
 
+  useEffect(() => {
+    api({ action: "load_estimates" }).then(d => { if (d.estimates) setSavedEstimates(d.estimates); });
+  }, []);
+
+  const setQty = (id, val) => setQtys(q => ({ ...q, [id]: Math.max(0, parseInt(val) || 0) }));
   const selectedRooms = ROOMS.filter(r => (qtys[r.id] || 0) > 0);
-  const subtotal = selectedRooms.reduce((sum, r) => sum + r.cost * qtys[r.id], 0);
-  const total = Math.max(subtotal, MIN_FEE);
-  const isMinFee = subtotal < MIN_FEE && subtotal > 0;
+  const total = selectedRooms.reduce((sum, r) => sum + r.cost * qtys[r.id], 0);
+
+  const saveEstimate = async () => {
+    if (!clientName.trim()) { setSaveStatus("Please enter a client name first."); setTimeout(() => setSaveStatus(""), 2500); return; }
+    if (total === 0) { setSaveStatus("Please add at least one room."); setTimeout(() => setSaveStatus(""), 2500); return; }
+    const rooms = selectedRooms.map(r => ({ id: r.id, label: r.label, cost: r.cost, qty: qtys[r.id] }));
+    await api({ action: "save_estimate", client_name: clientName, rooms, total });
+    setSaveStatus("Estimate saved!");
+    setTimeout(() => setSaveStatus(""), 2500);
+    const d = await api({ action: "load_estimates" });
+    if (d.estimates) setSavedEstimates(d.estimates);
+  };
+
+  const loadEstimate = (est) => {
+    setClientName(est.client_name);
+    const newQtys = {};
+    est.rooms.forEach(r => { newQtys[r.id] = r.qty; });
+    setQtys(newQtys);
+    setShowSaved(false);
+  };
+
+  const deleteEstimate = async (id) => {
+    await api({ action: "delete_estimate", id });
+    setSavedEstimates(e => e.filter(x => x.id !== id));
+  };
+
+  const printEstimate = () => {
+    const printContent = `
+      <html><head><title>Rose & Funk — ${clientName || "Project"} Estimate</title>
+      <style>
+        body { font-family: Georgia, serif; color: #1a1814; padding: 40px; max-width: 700px; margin: 0 auto; }
+        h1 { font-size: 28px; letter-spacing: 4px; margin-bottom: 4px; }
+        h2 { font-size: 12px; letter-spacing: 3px; color: #8a7a65; font-weight: normal; margin-bottom: 32px; }
+        .client { font-size: 18px; margin-bottom: 24px; color: #1a1814; }
+        table { width: 100%; border-collapse: collapse; margin-bottom: 24px; }
+        th { text-align: left; font-size: 11px; letter-spacing: 2px; color: #8a7a65; padding: 8px 0; border-bottom: 1px solid #d4cdc4; }
+        td { padding: 8px 0; font-size: 13px; border-bottom: 1px solid #f0ebe3; }
+        td:last-child { text-align: right; }
+        .total-row td { font-size: 16px; font-weight: bold; border-top: 2px solid #1a1814; border-bottom: none; padding-top: 12px; }
+        .phases { margin-top: 32px; }
+        .phase { display: flex; justify-content: space-between; padding: 10px 14px; background: #f8f6f3; margin-bottom: 6px; border-radius: 4px; }
+        .phase-label { font-size: 13px; }
+        .phase-pct { font-size: 11px; color: #8a7a65; }
+        .phase-amt { font-size: 14px; font-weight: bold; }
+        .footer { margin-top: 48px; font-size: 11px; color: #8a7a65; letter-spacing: 1px; }
+      </style></head><body>
+      <h1>ROSE & FUNK</h1>
+      <h2>INTERIOR DESIGN — PROJECT ESTIMATE</h2>
+      <div class="client">Client: ${clientName || "—"}</div>
+      <div class="client" style="font-size:13px;color:#8a7a65;">Date: ${new Date().toLocaleDateString("en-CA", { year: "numeric", month: "long", day: "numeric" })}</div>
+      <table>
+        <tr><th>ROOM</th><th>QTY</th><th>COST</th><th>TOTAL</th></tr>
+        ${selectedRooms.map(r => `<tr><td>${r.label}</td><td>${qtys[r.id]}</td><td>${fmt(r.cost)}</td><td>${fmt(r.cost * qtys[r.id])}</td></tr>`).join("")}
+        <tr class="total-row"><td colspan="3">TOTAL</td><td>${fmt(total)}</td></tr>
+      </table>
+      <div class="phases">
+        <div style="font-size:11px;letter-spacing:2px;color:#8a7a65;margin-bottom:12px;">PAYMENT SCHEDULE</div>
+        ${PHASES.map(p => `<div class="phase"><div><div class="phase-label">${p.label}</div><div class="phase-pct">${(p.pct * 100).toFixed(1)}%</div></div><div class="phase-amt">${fmt(total * p.pct)}</div></div>`).join("")}
+      </div>
+      <div class="footer">ROSE AND FUNK INTERIORS INC. · www.roseandfunk.com · 604.513.9118</div>
+      </body></html>
+    `;
+    const win = window.open("", "_blank");
+    win.document.write(printContent);
+    win.document.close();
+    win.print();
+  };
 
   return (
     <div style={{ flex: 1, maxWidth: 900, width: "100%", margin: "0 auto", padding: "24px 16px", overflowY: "auto" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 24, flexWrap: "wrap", gap: 12 }}>
+      {/* Header */}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 20, flexWrap: "wrap", gap: 12 }}>
         <div>
           <div style={{ fontSize: 11, letterSpacing: 2, color: C.dim }}>PROJECT ESTIMATOR — ID BY ROOM</div>
           <div style={{ fontSize: 12, color: C.dim, marginTop: 4 }}>Based on $200/hr</div>
         </div>
-        <button onClick={() => setQtys({})} style={{
-          background: "transparent", border: `1px solid ${C.border}`, borderRadius: 6,
-          color: C.dim, fontSize: 12, padding: "6px 14px", cursor: "pointer", fontFamily: "Georgia, serif"
-        }}>Reset</button>
+        <div style={{ display: "flex", gap: 8 }}>
+          <button onClick={() => setShowSaved(!showSaved)} style={{
+            background: "transparent", border: `1px solid ${C.border}`, borderRadius: 6,
+            color: C.muted, fontSize: 12, padding: "6px 14px", cursor: "pointer", fontFamily: "Georgia, serif"
+          }}>Saved Estimates ({savedEstimates.length})</button>
+          <button onClick={() => { setQtys({}); setClientName(""); }} style={{
+            background: "transparent", border: `1px solid ${C.border}`, borderRadius: 6,
+            color: C.dim, fontSize: 12, padding: "6px 14px", cursor: "pointer", fontFamily: "Georgia, serif"
+          }}>Reset</button>
+        </div>
       </div>
 
-      {/* Room selector */}
+      {/* Saved estimates panel */}
+      {showSaved && (
+        <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 8, padding: "16px", marginBottom: 20 }}>
+          <div style={{ fontSize: 11, letterSpacing: 2, color: C.dim, marginBottom: 12 }}>SAVED ESTIMATES</div>
+          {savedEstimates.length === 0 ? (
+            <div style={{ color: C.dim, fontSize: 13 }}>No saved estimates yet.</div>
+          ) : savedEstimates.map(est => (
+            <div key={est.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 0", borderBottom: `1px solid ${C.faint}` }}>
+              <div>
+                <div style={{ fontSize: 14, color: C.text }}>{est.client_name}</div>
+                <div style={{ fontSize: 11, color: C.dim, marginTop: 2 }}>{fmt(est.total)} · {new Date(est.created_at).toLocaleDateString("en-CA")}</div>
+              </div>
+              <div style={{ display: "flex", gap: 8 }}>
+                <button onClick={() => loadEstimate(est)} style={{
+                  background: C.gold, color: C.bg, border: "none", borderRadius: 4,
+                  fontSize: 11, padding: "4px 12px", cursor: "pointer", fontFamily: "Georgia, serif"
+                }}>Load</button>
+                <button onClick={() => deleteEstimate(est.id)} style={{
+                  background: "transparent", border: `1px solid ${C.border}`, borderRadius: 4,
+                  color: C.red, fontSize: 11, padding: "4px 12px", cursor: "pointer", fontFamily: "Georgia, serif"
+                }}>Delete</button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Client name */}
+      <div style={{ marginBottom: 20 }}>
+        <input
+          value={clientName}
+          onChange={e => setClientName(e.target.value)}
+          placeholder="Client name…"
+          style={{
+            width: "100%", background: C.surface, border: `1px solid ${C.border}`, borderRadius: 8,
+            color: C.text, padding: "12px 14px", fontSize: 15, outline: "none",
+            fontFamily: "Georgia, serif", boxSizing: "border-box"
+          }}
+        />
+      </div>
+
+      {/* Room grid */}
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 32 }}>
         {ROOMS.map(r => (
           <div key={r.id} style={{
@@ -275,27 +394,22 @@ const Estimator = () => {
 
       {/* Summary */}
       {total > 0 && (
-        <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 8, padding: "20px 24px" }}>
-          <div style={{ fontSize: 11, letterSpacing: 2, color: C.dim, marginBottom: 16 }}>ESTIMATE SUMMARY</div>
-
-          {selectedRooms.length > 0 && (
-            <div style={{ marginBottom: 16 }}>
-              {selectedRooms.map(r => (
-                <div key={r.id} style={{ display: "flex", justifyContent: "space-between", fontSize: 13, color: C.muted, padding: "4px 0", borderBottom: `1px solid ${C.faint}` }}>
-                  <span>{r.label} × {qtys[r.id]}</span>
-                  <span>{fmt(r.cost * qtys[r.id])}</span>
-                </div>
-              ))}
-            </div>
-          )}
-
-          <div style={{ display: "flex", justifyContent: "space-between", fontSize: 16, color: C.text, fontWeight: "bold", marginBottom: 20, paddingTop: 8 }}>
+        <div ref={printRef} style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 8, padding: "20px 24px" }}>
+          <div style={{ fontSize: 11, letterSpacing: 2, color: C.dim, marginBottom: 16 }}>ESTIMATE SUMMARY{clientName ? ` — ${clientName.toUpperCase()}` : ""}</div>
+          <div style={{ marginBottom: 16 }}>
+            {selectedRooms.map(r => (
+              <div key={r.id} style={{ display: "flex", justifyContent: "space-between", fontSize: 13, color: C.muted, padding: "4px 0", borderBottom: `1px solid ${C.faint}` }}>
+                <span>{r.label} × {qtys[r.id]}</span>
+                <span>{fmt(r.cost * qtys[r.id])}</span>
+              </div>
+            ))}
+          </div>
+          <div style={{ display: "flex", justifyContent: "space-between", fontSize: 16, color: C.text, marginBottom: 20, paddingTop: 8 }}>
             <span>TOTAL</span>
             <span style={{ color: C.gold }}>{fmt(total)}</span>
           </div>
-
           <div style={{ fontSize: 11, letterSpacing: 2, color: C.dim, marginBottom: 12 }}>PAYMENT SCHEDULE</div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 20 }}>
             {PHASES.map((p, i) => (
               <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 14px", background: C.faint, borderRadius: 6 }}>
                 <div>
@@ -305,6 +419,17 @@ const Estimator = () => {
                 <div style={{ fontSize: 15, color: C.gold }}>{fmt(total * p.pct)}</div>
               </div>
             ))}
+          </div>
+          <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+            <button onClick={saveEstimate} style={{
+              background: C.gold, color: C.bg, border: "none", borderRadius: 6,
+              padding: "10px 22px", cursor: "pointer", fontSize: 13, fontFamily: "Georgia, serif"
+            }}>Save Estimate</button>
+            <button onClick={printEstimate} style={{
+              background: "transparent", border: `1px solid ${C.border}`, borderRadius: 6,
+              color: C.muted, padding: "10px 22px", cursor: "pointer", fontSize: 13, fontFamily: "Georgia, serif"
+            }}>Print / Export PDF</button>
+            {saveStatus && <span style={{ fontSize: 12, color: C.gold }}>{saveStatus}</span>}
           </div>
         </div>
       )}
@@ -438,7 +563,6 @@ export default function App() {
       </div>
 
       <div style={{ flex: 1, display: "flex", overflow: "hidden" }}>
-        {/* Sidebar */}
         <div style={{ width: 220, background: C.surface, borderRight: `1px solid ${C.border}`, display: "flex", flexDirection: "column", overflowY: "auto", flexShrink: 0 }}>
           <div style={{ padding: "16px 14px 8px", fontSize: 10, letterSpacing: 2, color: C.dim }}>RECENT SEARCHES</div>
           {searches.length === 0 ? (
