@@ -12,48 +12,31 @@ export default async function handler(req, res) {
 
   const { messages, action, content } = req.body;
 
-  // Save knowledge
   if (action === "save_knowledge") {
-    const { error } = await supabase
-      .from("knowledge")
-      .update({ content, updated_at: new Date() })
-      .eq("id", 1);
+    const { error } = await supabase.from("knowledge").update({ content, updated_at: new Date() }).eq("id", 1);
     if (error) return res.status(500).json({ error: error.message });
     return res.status(200).json({ success: true });
   }
 
-  // Load knowledge
   if (action === "load_knowledge") {
-    const { data, error } = await supabase
-      .from("knowledge")
-      .select("content")
-      .eq("id", 1)
-      .single();
+    const { data, error } = await supabase.from("knowledge").select("content").eq("id", 1).single();
     if (error) return res.status(500).json({ error: error.message });
     return res.status(200).json({ content: data?.content || "" });
   }
 
-  // Save document
   if (action === "save_document") {
     const { name, text } = req.body;
-    const { error } = await supabase
-      .from("documents")
-      .insert({ name, content: text });
+    const { error } = await supabase.from("documents").insert({ name, content: text });
     if (error) return res.status(500).json({ error: error.message });
     return res.status(200).json({ success: true });
   }
 
-  // Load documents
   if (action === "load_documents") {
-    const { data, error } = await supabase
-      .from("documents")
-      .select("id, name, content")
-      .order("created_at", { ascending: false });
+    const { data, error } = await supabase.from("documents").select("id, name, content").order("created_at", { ascending: false });
     if (error) return res.status(500).json({ error: error.message });
     return res.status(200).json({ documents: data || [] });
   }
 
-  // Delete document
   if (action === "delete_document") {
     const { id } = req.body;
     const { error } = await supabase.from("documents").delete().eq("id", id);
@@ -61,19 +44,34 @@ export default async function handler(req, res) {
     return res.status(200).json({ success: true });
   }
 
-  // Chat
+  if (action === "save_search") {
+    const { session_id, question } = req.body;
+    await supabase.from("searches").insert({ session_id, question });
+    return res.status(200).json({ success: true });
+  }
+
+  if (action === "load_searches") {
+    const { session_id } = req.body;
+    const { data, error } = await supabase.from("searches").select("id, question").eq("session_id", session_id).order("created_at", { ascending: false }).limit(50);
+    if (error) return res.status(500).json({ error: error.message });
+    return res.status(200).json({ searches: data || [] });
+  }
+
+  if (action === "delete_search") {
+    const { id } = req.body;
+    await supabase.from("searches").delete().eq("id", id);
+    return res.status(200).json({ success: true });
+  }
+
   if (!messages || !Array.isArray(messages)) {
     return res.status(400).json({ error: "Invalid request" });
   }
 
-  // Load knowledge + documents for context
   const { data: kb } = await supabase.from("knowledge").select("content").eq("id", 1).single();
   const { data: docs } = await supabase.from("documents").select("name, content");
 
   const knowledgeText = kb?.content || "";
-  const docsText = docs?.length
-    ? docs.map(d => `--- ${d.name} ---\n${d.content}`).join("\n\n")
-    : "";
+  const docsText = docs?.length ? docs.map(d => `--- ${d.name} ---\n${d.content}`).join("\n\n") : "";
 
   const systemPrompt = `You are an expert business assistant for Rose and Funk Interiors, an interior design studio in Fort Langley, BC. Help the team with day-to-day operations, client management, design decisions, and business improvement. Be practical, warm, and direct.
 
