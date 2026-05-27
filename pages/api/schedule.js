@@ -151,7 +151,7 @@ Provide exactly 3 date options for every client meeting, spaced across Tue-Fri.`
         },
         body: JSON.stringify({
           model: "claude-sonnet-4-20250514",
-          max_tokens: 8000,
+          max_tokens: 4000,
           system: SCHEDULE_RULES,
           messages: [{ role: "user", content: prompt }],
         }),
@@ -202,7 +202,7 @@ Return the complete JSON schedule.`;
         },
         body: JSON.stringify({
           model: "claude-sonnet-4-20250514",
-          max_tokens: 8000,
+          max_tokens: 4000,
           system: SCHEDULE_RULES,
           messages: [{ role: "user", content: prompt }],
         }),
@@ -234,3 +234,7 @@ Return the complete JSON schedule.`;
 
   return res.status(400).json({ error: "Unknown action" });
 }
+
+export const config = {
+  maxDuration: 60,
+};
