@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 
-const TABS = ["Chat", "Estimator", "Furnishings", "Knowledge Base", "Documents", "Procedures"];
+const TABS = ["Chat", "Estimator", "Furnishings", "Knowledge Base", "Procedures"];
 
 const C = {
   bg: "#0f0e0c", surface: "#1a1814", border: "#2a2620",
@@ -18,29 +18,29 @@ const ROOMS = [
   { id: "f", label: "F - Powder Room", cost: 1750 },
   { id: "g", label: "G - Office", cost: 2500 },
   { id: "h", label: "H - Kitchen", cost: 5000 },
-  { id: "i", label: "I - Kitchen Island", cost: 3500 },
+  { id: "i", label: "I - Prep Kitchen", cost: 3500 },
   { id: "j", label: "J - Pantry", cost: 2500 },
   { id: "k", label: "K - Eating Nook", cost: 1250 },
   { id: "l", label: "L - Family/Living", cost: 3000 },
   { id: "m", label: "M - Mudroom", cost: 2500 },
   { id: "n", label: "N - Laundry", cost: 2500 },
   { id: "o", label: "O - Laundry (small)", cost: 1500 },
-  { id: "p", label: "P - Primary Bedroom", cost: 3500 },
+  { id: "p", label: "P - Primary Bedroom", cost: 2500 },
   { id: "q", label: "Q - Primary Ensuite", cost: 3500 },
   { id: "r", label: "R - Primary WIC", cost: 2500 },
   { id: "s", label: "S - Bedroom", cost: 1750 },
   { id: "t", label: "T - Bedroom (small)", cost: 250 },
-  { id: "u", label: "U - Bathroom", cost: 2500 },
-  { id: "v", label: "V - Bathroom (small)", cost: 2500 },
-  { id: "w", label: "W - Media Room", cost: 2500 },
-  { id: "x", label: "X - Bar", cost: 2500 },
+  { id: "u", label: "U - Bathroom (3pc)", cost: 2000 },
+  { id: "v", label: "V - Bathroom (4pc)", cost: 2500 },
+  { id: "w", label: "W - Media Room", cost: 2750 },
+  { id: "x", label: "X - Bar", cost: 3500 },
   { id: "y", label: "Y - Gym", cost: 1500 },
-  { id: "z1", label: "Z - Suite | Bedroom", cost: 1750 },
-  { id: "z2", label: "Z - Suite | Bath", cost: 250 },
+  { id: "z1", label: "Z - Suite | Bedroom", cost: 250 },
+  { id: "z2", label: "Z - Suite | Bath", cost: 1750 },
   { id: "z3", label: "Z - Suite | Kitchen", cost: 2000 },
   { id: "z4", label: "Z - Suite | Living", cost: 750 },
-  { id: "zz1", label: "ZZ - Outdoor (large)", cost: 2000 },
-  { id: "zz2", label: "ZZ - Outdoor (small)", cost: 1500 },
+  { id: "zz1", label: "ZZ - Outdoor Kitchen", cost: 2000 },
+  { id: "zz2", label: "ZZ - Outdoor Living", cost: 1500 },
 ];
 
 const PHASES = [
@@ -596,7 +596,6 @@ const FurnishingsEstimator = () => {
   });
 
   const roomsTotal = roomsWithPrices.reduce((s, r) => s + r.price, 0);
-
   const addInstallDay = () => setInstallDays(d => [...d, { hours: 8, admin: 0, designers: 0 }]);
   const removeInstallDay = (i) => setInstallDays(d => d.filter((_, idx) => idx !== i));
   const updateDay = (i, key, val) => setInstallDays(d => d.map((day, idx) => idx === i ? { ...day, [key]: Math.max(0, parseInt(val) || 0) } : day));
@@ -992,42 +991,41 @@ export default function App() {
           {tab === "Furnishings" && <PinGate><FurnishingsEstimator /></PinGate>}
 
           {tab === "Knowledge Base" && (
-            <div style={{ flex: 1, maxWidth: 800, width: "100%", margin: "0 auto", padding: "24px 16px", display: "flex", flexDirection: "column", gap: 20, overflowY: "auto" }}>
-              <div style={{ fontSize: 11, letterSpacing: 2, color: C.dim }}>KNOWLEDGE BASE — saved to database, persists for all team members</div>
-              <textarea value={knowledge} onChange={e => setKnowledge(e.target.value)} rows={22} style={{
-                width: "100%", background: C.surface, border: `1px solid ${C.border}`,
-                borderRadius: 8, color: C.text, padding: "14px", fontSize: 13,
-                fontFamily: "monospace", lineHeight: 1.6, resize: "vertical", outline: "none", boxSizing: "border-box"
-              }} />
-              <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-                <button onClick={saveKnowledge} style={{ background: C.gold, color: C.bg, border: "none", borderRadius: 6, padding: "10px 22px", cursor: "pointer", fontSize: 13, fontFamily: "Georgia, serif" }}>Save Knowledge Base</button>
-                {kbStatus && <span style={{ color: C.gold, fontSize: 13 }}>{kbStatus}</span>}
-              </div>
-            </div>
-          )}
-
-          {tab === "Documents" && (
-            <div style={{ flex: 1, maxWidth: 800, width: "100%", margin: "0 auto", padding: "24px 16px", display: "flex", flexDirection: "column", gap: 20, overflowY: "auto" }}>
-              <div style={{ fontSize: 11, letterSpacing: 2, color: C.dim }}>UPLOADED DOCUMENTS — the AI reads these automatically</div>
-              <div onClick={() => fileRef.current?.click()} style={{ border: `2px dashed ${C.border}`, borderRadius: 8, padding: "32px", textAlign: "center", cursor: "pointer", color: C.dim, fontSize: 14 }}>
-                {uploading ? "Uploading and extracting text…" : "Click to upload a file (PDF, TXT, or CSV)"}
-                <input ref={fileRef} type="file" accept=".txt,.csv,.md,.pdf" onChange={handleFileUpload} style={{ display: "none" }} />
-              </div>
-              {documents.length === 0 ? (
-                <div style={{ color: C.dim, fontSize: 13, textAlign: "center" }}>No documents uploaded yet.</div>
-              ) : (
-                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                  {documents.map(doc => (
-                    <div key={doc.id} style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 8, padding: "14px 18px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                      <div>
-                        <div style={{ fontSize: 14, color: C.text }}>{doc.name}</div>
-                        <div style={{ fontSize: 11, color: C.dim, marginTop: 3 }}>{doc.content.length.toLocaleString()} characters extracted</div>
-                      </div>
-                      <button onClick={() => deleteDoc(doc.id)} style={{ background: "transparent", border: `1px solid ${C.border}`, borderRadius: 4, color: C.red, fontSize: 11, padding: "4px 12px", cursor: "pointer", fontFamily: "Georgia, serif" }}>Delete</button>
-                    </div>
-                  ))}
+            <div style={{ flex: 1, maxWidth: 800, width: "100%", margin: "0 auto", padding: "24px 16px", display: "flex", flexDirection: "column", gap: 24, overflowY: "auto" }}>
+              <div>
+                <div style={{ fontSize: 11, letterSpacing: 2, color: C.dim, marginBottom: 10 }}>KNOWLEDGE BASE — saved to database, persists for all team members</div>
+                <textarea value={knowledge} onChange={e => setKnowledge(e.target.value)} rows={16} style={{
+                  width: "100%", background: C.surface, border: `1px solid ${C.border}`,
+                  borderRadius: 8, color: C.text, padding: "14px", fontSize: 13,
+                  fontFamily: "monospace", lineHeight: 1.6, resize: "vertical", outline: "none", boxSizing: "border-box"
+                }} />
+                <div style={{ display: "flex", alignItems: "center", gap: 14, marginTop: 12 }}>
+                  <button onClick={saveKnowledge} style={{ background: C.gold, color: C.bg, border: "none", borderRadius: 6, padding: "10px 22px", cursor: "pointer", fontSize: 13, fontFamily: "Georgia, serif" }}>Save Knowledge Base</button>
+                  {kbStatus && <span style={{ color: C.gold, fontSize: 13 }}>{kbStatus}</span>}
                 </div>
-              )}
+              </div>
+              <div>
+                <div style={{ fontSize: 11, letterSpacing: 2, color: C.dim, marginBottom: 10 }}>UPLOADED DOCUMENTS — the AI reads these automatically</div>
+                <div onClick={() => fileRef.current?.click()} style={{ border: `2px dashed ${C.border}`, borderRadius: 8, padding: "24px", textAlign: "center", cursor: "pointer", color: C.dim, fontSize: 14, marginBottom: 12 }}>
+                  {uploading ? "Uploading and extracting text…" : "Click to upload a file (PDF, TXT, or CSV)"}
+                  <input ref={fileRef} type="file" accept=".txt,.csv,.md,.pdf" onChange={handleFileUpload} style={{ display: "none" }} />
+                </div>
+                {documents.length === 0 ? (
+                  <div style={{ color: C.dim, fontSize: 13, textAlign: "center" }}>No documents uploaded yet.</div>
+                ) : (
+                  <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                    {documents.map(doc => (
+                      <div key={doc.id} style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 8, padding: "14px 18px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                        <div>
+                          <div style={{ fontSize: 14, color: C.text }}>{doc.name}</div>
+                          <div style={{ fontSize: 11, color: C.dim, marginTop: 3 }}>{doc.content.length.toLocaleString()} characters extracted</div>
+                        </div>
+                        <button onClick={() => deleteDoc(doc.id)} style={{ background: "transparent", border: `1px solid ${C.border}`, borderRadius: 4, color: C.red, fontSize: 11, padding: "4px 12px", cursor: "pointer", fontFamily: "Georgia, serif" }}>Delete</button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
           )}
 
