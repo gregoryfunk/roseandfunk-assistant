@@ -516,177 +516,111 @@ const getSessionId = () => {
   return id;
 };
 
-// ── PIN GATE ─────────────────────────────────────────────────────────────────
-const PinGate = ({ children, label = "Enter PIN to Access" }) => {
+const PinGate = ({ children }) => {
   const [unlocked, setUnlocked] = useState(false);
   const [pin, setPin] = useState("");
-  const [shake, setShake] = useState(false);
   const [error, setError] = useState("");
 
-  const press = (d) => {
-    if (pin.length >= 4) return;
-    const next = pin + d;
-    setPin(next);
-    setError("");
-    if (next.length === 4) {
-      if (next === "1199") { setTimeout(() => setUnlocked(true), 150); }
-      else {
-        setShake(true);
-        setTimeout(() => { setPin(""); setShake(false); setError("Incorrect PIN"); }, 500);
-      }
+  const submit = () => {
+    if (pin === "1199") {
+      setUnlocked(true);
+      setError("");
+    } else {
+      setError("Incorrect PIN. Please try again.");
+      setPin("");
     }
   };
-  const del = () => { setPin(p => p.slice(0, -1)); setError(""); };
 
   if (unlocked) return children;
 
   return (
-    <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 28, padding: 24 }}>
-      <div style={{ textAlign: "center" }}>
-        <div style={{ fontSize: 10, letterSpacing: 3, color: C.dim, textTransform: "uppercase", marginBottom: 4 }}>Rose & Funk</div>
-        <div style={{ fontSize: 13, color: C.muted, letterSpacing: 1 }}>{label}</div>
-      </div>
-      <div style={{ display: "flex", gap: 14, animation: shake ? "shake 0.4s ease" : "none" }}>
-        {[0,1,2,3].map(i => (
-          <div key={i} style={{
-            width: 14, height: 14, borderRadius: "50%",
-            background: i < pin.length ? C.gold : "transparent",
-            border: `2px solid ${i < pin.length ? C.gold : C.border}`,
-            transition: "all 0.15s"
-          }} />
-        ))}
-      </div>
-      {error && <div style={{ fontSize: 12, color: C.red, letterSpacing: 1 }}>{error}</div>}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 72px)", gap: 12 }}>
-        {["1","2","3","4","5","6","7","8","9","","0","⌫"].map((k, i) =>
-          k === "" ? <div key={i} /> : (
-            <button key={i} onClick={() => k === "⌫" ? del() : press(k)}
-              style={{
-                height: 72, borderRadius: 16, background: C.surface, border: `1px solid ${C.border}`,
-                color: C.text, fontSize: k === "⌫" ? 20 : 24, cursor: "pointer",
-                fontFamily: "Georgia, serif", WebkitTapHighlightColor: "transparent",
-                transition: "background 0.1s", display: "flex", alignItems: "center", justifyContent: "center"
-              }}
-              onTouchStart={e => e.currentTarget.style.background = C.faint}
-              onTouchEnd={e => e.currentTarget.style.background = C.surface}
-            >{k}</button>
-          )
-        )}
-      </div>
-      <style>{`@keyframes shake { 0%,100%{transform:translateX(0)} 20%{transform:translateX(-8px)} 40%{transform:translateX(8px)} 60%{transform:translateX(-6px)} 80%{transform:translateX(6px)} }`}</style>
-    </div>
-  );
-};
-
-// ── CHAT TAB ─────────────────────────────────────────────────────────────────
-const ChatTab = ({ knowledge }) => {
-  const [messages, setMessages] = useState([{
-    role: "assistant", content: "Hi! I'm your Rose & Funk assistant. Ask me anything about procedures, clients, or operations.", type: "answer"
-  }]);
-  const [input, setInput] = useState("");
-  const [loading, setLoading] = useState(false);
-  const bottomRef = useRef(null);
-
-  useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages, loading]);
-
-  const send = async (text) => {
-    const msg = (text || input).trim();
-    if (!msg || loading) return;
-    setInput("");
-    const updated = [...messages, { role: "user", content: msg, type: "answer" }];
-    setMessages(updated);
-    setLoading(true);
-    try {
-      const data = await api({ messages: updated.map(m => ({ role: m.role, content: m.content })) });
-      setMessages(prev => [...prev, { role: "assistant", content: data.text || "Sorry, no response.", type: "answer" }]);
-    } catch { setMessages(prev => [...prev, { role: "assistant", content: "Network error — please try again.", type: "answer" }]); }
-    setLoading(false);
-  };
-
-  const PROMPTS = [
-    "What's the feedback window after a presentation?",
-    "When does retainer billing start?",
-    "How do I handle scope changes?",
-    "What goes in the follow-up after a site visit?",
-  ];
-
-  return (
-    <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
-      <div style={{ flex: 1, overflowY: "auto", padding: "16px 16px 8px", display: "flex", flexDirection: "column", gap: 12 }}>
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 4 }}>
-          {PROMPTS.map(p => (
-            <button key={p} onClick={() => send(p)} style={{
-              background: C.faint, border: `1px solid ${C.border}`, borderRadius: 20,
-              color: C.gold, fontSize: 12, padding: "7px 14px", cursor: "pointer",
-              fontFamily: "Georgia, serif", WebkitTapHighlightColor: "transparent", textAlign: "left"
-            }}>{p}</button>
-          ))}
-        </div>
-        {messages.map((m, i) => (
-          <div key={i} style={{ display: "flex", justifyContent: m.role === "user" ? "flex-end" : "flex-start" }}>
-            <div style={{
-              maxWidth: "85%", padding: "12px 15px", borderRadius: m.role === "user" ? "18px 18px 4px 18px" : "18px 18px 18px 4px",
-              fontSize: 15, lineHeight: 1.55,
-              background: m.role === "user" ? C.gold : C.surface,
-              color: m.role === "user" ? C.bg : C.text,
-              border: m.role === "assistant" ? `1px solid ${C.border}` : "none",
-              whiteSpace: "pre-wrap"
-            }}>{m.content}</div>
-          </div>
-        ))}
-        {loading && (
-          <div style={{ display: "flex", justifyContent: "flex-start" }}>
-            <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: "18px 18px 18px 4px", padding: "12px 16px", color: C.dim, fontSize: 14 }}>Thinking…</div>
-          </div>
-        )}
-        <div ref={bottomRef} />
-      </div>
-      <div style={{ padding: "10px 12px 10px", background: C.bg, borderTop: `1px solid ${C.border}`, display: "flex", gap: 10, alignItems: "flex-end" }}>
-        <textarea
-          value={input}
-          onChange={e => setInput(e.target.value)}
-          onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } }}
-          placeholder="Ask anything…"
-          rows={1}
+    <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center" }}>
+      <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 8, padding: "32px 40px", textAlign: "center", width: 280 }}>
+        <div style={{ fontSize: 11, letterSpacing: 2, color: C.dim, marginBottom: 20 }}>ENTER PIN TO ACCESS</div>
+        <input
+          type="password"
+          value={pin}
+          onChange={e => setPin(e.target.value)}
+          onKeyDown={e => e.key === "Enter" && submit()}
+          placeholder="••••"
+          maxLength={4}
           style={{
-            flex: 1, background: C.surface, border: `1px solid ${C.border}`, borderRadius: 22,
-            color: C.text, padding: "12px 16px", fontSize: 15, resize: "none", outline: "none",
-            fontFamily: "Georgia, serif", lineHeight: 1.4, maxHeight: 120, overflowY: "auto"
+            width: "100%", background: C.bg, border: `1px solid ${C.border}`, borderRadius: 6,
+            color: C.text, padding: "12px", fontSize: 20, textAlign: "center", outline: "none",
+            fontFamily: "Georgia, serif", boxSizing: "border-box", marginBottom: 12, letterSpacing: 8
           }}
-          onInput={e => { e.target.style.height = "auto"; e.target.style.height = Math.min(e.target.scrollHeight, 120) + "px"; }}
         />
-        <button onClick={() => send()} disabled={loading || !input.trim()} style={{
-          width: 46, height: 46, borderRadius: "50%", background: input.trim() ? C.gold : C.faint,
-          border: "none", cursor: "pointer", flexShrink: 0, fontSize: 20,
-          display: "flex", alignItems: "center", justifyContent: "center",
-          transition: "background 0.2s", WebkitTapHighlightColor: "transparent"
-        }}>↑</button>
+        {error && <div style={{ fontSize: 12, color: C.red, marginBottom: 10 }}>{error}</div>}
+        <button
+          onClick={submit}
+          style={{
+            background: C.gold, color: C.bg, border: "none", borderRadius: 6,
+            padding: "10px 28px", cursor: "pointer", fontSize: 13, fontFamily: "Georgia, serif", width: "100%"
+          }}
+        >Enter</button>
       </div>
     </div>
   );
 };
 
-// ── ESTIMATOR TAB ─────────────────────────────────────────────────────────────
-const EstimatorTab = () => {
+const ClarifyingMessage = ({ data, onAnswer }) => {
+  const [selections, setSelections] = useState({});
+  const select = (qi, option) => setSelections(s => ({ ...s, [qi]: option }));
+  const allAnswered = data.questions.every((_, i) => selections[i]);
+  const submit = () => {
+    const answer = data.questions.map((q, i) => `${q.question}: ${selections[i]}`).join("\n");
+    onAnswer(answer);
+  };
+  return (
+    <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 8, padding: "16px 18px", maxWidth: "80%" }}>
+      {data.intro && <div style={{ fontSize: 14, color: C.text, marginBottom: 14, lineHeight: 1.5 }}>{data.intro}</div>}
+      {data.questions.map((q, qi) => (
+        <div key={qi} style={{ marginBottom: 16 }}>
+          <div style={{ fontSize: 13, color: C.muted, marginBottom: 8, lineHeight: 1.4 }}>{q.question}</div>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+            {q.options.map((opt, oi) => (
+              <button key={oi} onClick={() => select(qi, opt)} style={{
+                background: selections[qi] === opt ? C.gold : C.faint,
+                color: selections[qi] === opt ? C.bg : C.muted,
+                border: `1px solid ${selections[qi] === opt ? C.gold : C.border}`,
+                borderRadius: 20, padding: "5px 14px", cursor: "pointer",
+                fontSize: 12, fontFamily: "Georgia, serif", transition: "all 0.15s"
+              }}>{opt}</button>
+            ))}
+          </div>
+        </div>
+      ))}
+      {allAnswered && (
+        <button onClick={submit} style={{
+          background: C.gold, color: C.bg, border: "none", borderRadius: 6,
+          padding: "8px 20px", cursor: "pointer", fontSize: 13, fontFamily: "Georgia, serif", marginTop: 4
+        }}>Get Answer →</button>
+      )}
+    </div>
+  );
+};
+
+const Estimator = () => {
   const [qtys, setQtys] = useState({});
   const [clientName, setClientName] = useState("");
   const [savedEstimates, setSavedEstimates] = useState([]);
   const [saveStatus, setSaveStatus] = useState("");
   const [showSaved, setShowSaved] = useState(false);
-  const [showSummary, setShowSummary] = useState(false);
 
-  useEffect(() => { api({ action: "load_estimates" }).then(d => { if (d.estimates) setSavedEstimates(d.estimates); }); }, []);
+  useEffect(() => {
+    api({ action: "load_estimates" }).then(d => { if (d.estimates) setSavedEstimates(d.estimates); });
+  }, []);
 
   const setQty = (id, val) => setQtys(q => ({ ...q, [id]: Math.max(0, parseInt(val) || 0) }));
   const selectedRooms = ROOMS.filter(r => (qtys[r.id] || 0) > 0);
   const total = selectedRooms.reduce((sum, r) => sum + r.cost * qtys[r.id], 0);
 
   const saveEstimate = async () => {
-    if (!clientName.trim()) { setSaveStatus("Enter a client name first."); setTimeout(() => setSaveStatus(""), 2500); return; }
-    if (total === 0) { setSaveStatus("Add at least one room."); setTimeout(() => setSaveStatus(""), 2500); return; }
+    if (!clientName.trim()) { setSaveStatus("Please enter a client name first."); setTimeout(() => setSaveStatus(""), 2500); return; }
+    if (total === 0) { setSaveStatus("Please add at least one room."); setTimeout(() => setSaveStatus(""), 2500); return; }
     const rooms = selectedRooms.map(r => ({ id: r.id, label: r.label, cost: r.cost, qty: qtys[r.id] }));
     await api({ action: "save_estimate", client_name: clientName, rooms, total });
-    setSaveStatus("Saved!");
+    setSaveStatus("Estimate saved!");
     setTimeout(() => setSaveStatus(""), 2500);
     const d = await api({ action: "load_estimates" });
     if (d.estimates) setSavedEstimates(d.estimates);
@@ -706,496 +640,654 @@ const EstimatorTab = () => {
   };
 
   const printEstimate = () => {
+    const printContent = `
+      <html><head><title>Rose & Funk — ${clientName || "Project"} Estimate</title>
+      <style>
+        body { font-family: Georgia, serif; color: #1a1814; padding: 40px; max-width: 700px; margin: 0 auto; }
+        h1 { font-size: 28px; letter-spacing: 4px; margin-bottom: 4px; }
+        h2 { font-size: 12px; letter-spacing: 3px; color: #8a7a65; font-weight: normal; margin-bottom: 32px; }
+        .client { font-size: 18px; margin-bottom: 24px; }
+        table { width: 100%; border-collapse: collapse; margin-bottom: 24px; }
+        th { text-align: left; font-size: 11px; letter-spacing: 2px; color: #8a7a65; padding: 8px 0; border-bottom: 1px solid #d4cdc4; }
+        td { padding: 8px 0; font-size: 13px; border-bottom: 1px solid #f0ebe3; }
+        td:last-child { text-align: right; }
+        .total-row td { font-size: 16px; font-weight: bold; border-top: 2px solid #1a1814; border-bottom: none; padding-top: 12px; }
+        .phase { display: flex; justify-content: space-between; padding: 10px 14px; background: #f8f6f3; margin-bottom: 6px; border-radius: 4px; }
+        .footer { margin-top: 48px; font-size: 11px; color: #8a7a65; letter-spacing: 1px; }
+      </style></head><body>
+      <h1>ROSE & FUNK</h1>
+      <h2>INTERIOR DESIGN — PROJECT ESTIMATE</h2>
+      <div class="client">Client: ${clientName || "—"}</div>
+      <div class="client" style="font-size:13px;color:#8a7a65;">Date: ${new Date().toLocaleDateString("en-CA", { year: "numeric", month: "long", day: "numeric" })}</div>
+      <table>
+        <tr><th>ROOM</th><th>QTY</th><th>COST</th><th>TOTAL</th></tr>
+        ${selectedRooms.map(r => `<tr><td>${r.label}</td><td>${qtys[r.id]}</td><td>${fmt(r.cost)}</td><td>${fmt(r.cost * qtys[r.id])}</td></tr>`).join("")}
+        <tr class="total-row"><td colspan="3">TOTAL</td><td>${fmt(total)}</td></tr>
+      </table>
+      <div style="font-size:11px;letter-spacing:2px;color:#8a7a65;margin-bottom:12px;">PAYMENT SCHEDULE</div>
+      ${PHASES.map(p => `<div class="phase"><div>${p.label} (${(p.pct * 100).toFixed(1)}%)</div><div><strong>${fmt(total * p.pct)}</strong></div></div>`).join("")}
+      <div class="footer">ROSE AND FUNK INTERIORS INC. · www.roseandfunk.com · 604.513.9118</div>
+      </body></html>`;
     const win = window.open("", "_blank");
-    win.document.write(`<html><head><title>Rose & Funk — ${clientName || "Project"} Estimate</title>
-    <style>body{font-family:Georgia,serif;color:#1a1814;padding:40px;max-width:700px;margin:0 auto}h1{font-size:28px;letter-spacing:4px;margin-bottom:4px}h2{font-size:12px;letter-spacing:3px;color:#8a7a65;font-weight:normal;margin-bottom:32px}.client{font-size:18px;margin-bottom:24px}table{width:100%;border-collapse:collapse;margin-bottom:24px}th{text-align:left;font-size:11px;letter-spacing:2px;color:#8a7a65;padding:8px 0;border-bottom:1px solid #d4cdc4}td{padding:8px 0;font-size:13px;border-bottom:1px solid #f0ebe3}td:last-child{text-align:right}.total-row td{font-size:16px;font-weight:bold;border-top:2px solid #1a1814;border-bottom:none;padding-top:12px}.phase{display:flex;justify-content:space-between;padding:10px 14px;background:#f8f6f3;margin-bottom:6px;border-radius:4px}.footer{margin-top:48px;font-size:11px;color:#8a7a65;letter-spacing:1px}</style></head><body>
-    <h1>ROSE & FUNK</h1><h2>INTERIOR DESIGN — PROJECT ESTIMATE</h2>
-    <div class="client">Client: ${clientName || "—"}</div>
-    <div class="client" style="font-size:13px;color:#8a7a65;">Date: ${new Date().toLocaleDateString("en-CA", { year: "numeric", month: "long", day: "numeric" })}</div>
-    <table><tr><th>ROOM</th><th>QTY</th><th>COST</th><th>TOTAL</th></tr>
-    ${selectedRooms.map(r => `<tr><td>${r.label}</td><td>${qtys[r.id]}</td><td>${fmt(r.cost)}</td><td>${fmt(r.cost * qtys[r.id])}</td></tr>`).join("")}
-    <tr class="total-row"><td colspan="3">TOTAL</td><td>${fmt(total)}</td></tr></table>
-    <div style="font-size:11px;letter-spacing:2px;color:#8a7a65;margin-bottom:12px;">PAYMENT SCHEDULE</div>
-    ${PHASES.map(p => `<div class="phase"><div>${p.label} (${(p.pct*100).toFixed(1)}%)</div><div><strong>${fmt(total*p.pct)}</strong></div></div>`).join("")}
-    <div class="footer">ROSE AND FUNK INTERIORS INC. · www.roseandfunk.com · 604.513.9118</div></body></html>`);
-    win.document.close(); win.print();
+    win.document.write(printContent);
+    win.document.close();
+    win.print();
   };
 
-  if (showSummary && total > 0) return (
-    <div style={{ flex: 1, overflowY: "auto", padding: 16, display: "flex", flexDirection: "column", gap: 16 }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-        <button onClick={() => setShowSummary(false)} style={{ background: C.faint, border: "none", borderRadius: 10, padding: "8px 14px", color: C.muted, cursor: "pointer", fontSize: 13, fontFamily: "Georgia, serif" }}>← Back</button>
-        <div style={{ fontSize: 11, letterSpacing: 2, color: C.dim }}>ESTIMATE SUMMARY</div>
-      </div>
-      <input value={clientName} onChange={e => setClientName(e.target.value)} placeholder="Client name…" style={{
-        width: "100%", background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12,
-        color: C.text, padding: "14px 16px", fontSize: 16, outline: "none",
-        fontFamily: "Georgia, serif", boxSizing: "border-box"
-      }} />
-      <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 14, overflow: "hidden" }}>
-        {selectedRooms.map((r, i) => (
-          <div key={r.id} style={{ display: "flex", justifyContent: "space-between", padding: "14px 16px", borderBottom: i < selectedRooms.length - 1 ? `1px solid ${C.faint}` : "none" }}>
-            <span style={{ fontSize: 14, color: C.muted }}>{r.label} × {qtys[r.id]}</span>
-            <span style={{ fontSize: 14, color: C.text }}>{fmt(r.cost * qtys[r.id])}</span>
-          </div>
-        ))}
-        <div style={{ display: "flex", justifyContent: "space-between", padding: "16px", background: C.faint }}>
-          <span style={{ fontSize: 16, color: C.text, fontWeight: 600 }}>TOTAL</span>
-          <span style={{ fontSize: 20, color: C.gold }}>{fmt(total)}</span>
-        </div>
-      </div>
-      <div style={{ fontSize: 11, letterSpacing: 2, color: C.dim, marginTop: 4 }}>PAYMENT SCHEDULE</div>
-      <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 14, overflow: "hidden" }}>
-        {PHASES.map((p, i) => (
-          <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "14px 16px", borderBottom: i < PHASES.length - 1 ? `1px solid ${C.faint}` : "none" }}>
-            <div>
-              <div style={{ fontSize: 14, color: C.text }}>{p.label}</div>
-              <div style={{ fontSize: 11, color: C.dim, marginTop: 2 }}>{(p.pct * 100).toFixed(1)}%</div>
-            </div>
-            <div style={{ fontSize: 16, color: C.gold }}>{fmt(total * p.pct)}</div>
-          </div>
-        ))}
-      </div>
-      <div style={{ display: "flex", gap: 10 }}>
-        <button onClick={saveEstimate} style={{ flex: 1, background: C.gold, color: C.bg, border: "none", borderRadius: 12, padding: "15px", cursor: "pointer", fontSize: 15, fontFamily: "Georgia, serif" }}>
-          {saveStatus || "Save Estimate"}
-        </button>
-        <button onClick={printEstimate} style={{ flex: 1, background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12, color: C.muted, padding: "15px", cursor: "pointer", fontSize: 15, fontFamily: "Georgia, serif" }}>
-          Print PDF
-        </button>
-      </div>
-      {showSaved && savedEstimates.length > 0 && (
-        <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 14, overflow: "hidden" }}>
-          <div style={{ padding: "12px 16px", fontSize: 10, letterSpacing: 2, color: C.dim, borderBottom: `1px solid ${C.faint}` }}>SAVED ESTIMATES</div>
-          {savedEstimates.map(est => (
-            <div key={est.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "14px 16px", borderBottom: `1px solid ${C.faint}` }}>
-              <div>
-                <div style={{ fontSize: 14, color: C.text }}>{est.client_name}</div>
-                <div style={{ fontSize: 11, color: C.dim, marginTop: 2 }}>{fmt(est.total)} · {new Date(est.created_at).toLocaleDateString("en-CA")}</div>
-              </div>
-              <div style={{ display: "flex", gap: 8 }}>
-                <button onClick={() => loadEstimate(est)} style={{ background: C.gold, color: C.bg, border: "none", borderRadius: 8, fontSize: 12, padding: "6px 14px", cursor: "pointer", fontFamily: "Georgia, serif" }}>Load</button>
-                <button onClick={() => deleteEstimate(est.id)} style={{ background: "transparent", border: `1px solid ${C.border}`, borderRadius: 8, color: C.red, fontSize: 12, padding: "6px 14px", cursor: "pointer", fontFamily: "Georgia, serif" }}>Del</button>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-
   return (
-    <div style={{ flex: 1, overflowY: "auto", padding: 16 }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+    <div style={{ flex: 1, maxWidth: 900, width: "100%", margin: "0 auto", padding: "24px 16px", overflowY: "auto" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 20, flexWrap: "wrap", gap: 12 }}>
         <div>
-          <div style={{ fontSize: 11, letterSpacing: 2, color: C.dim }}>ID BY ROOM · $200/hr</div>
+          <div style={{ fontSize: 11, letterSpacing: 2, color: C.dim }}>PROJECT ESTIMATOR — ID BY ROOM</div>
+          <div style={{ fontSize: 12, color: C.dim, marginTop: 4 }}>Based on $200/hr</div>
         </div>
         <div style={{ display: "flex", gap: 8 }}>
-          <button onClick={() => setShowSaved(!showSaved)} style={{ background: "transparent", border: `1px solid ${C.border}`, borderRadius: 8, color: C.dim, fontSize: 12, padding: "6px 12px", cursor: "pointer", fontFamily: "Georgia, serif" }}>Saved ({savedEstimates.length})</button>
-          <button onClick={() => { setQtys({}); setClientName(""); }} style={{ background: "transparent", border: `1px solid ${C.border}`, borderRadius: 8, color: C.dim, fontSize: 12, padding: "6px 12px", cursor: "pointer", fontFamily: "Georgia, serif" }}>Reset</button>
+          <button onClick={() => setShowSaved(!showSaved)} style={{ background: "transparent", border: `1px solid ${C.border}`, borderRadius: 6, color: C.muted, fontSize: 12, padding: "6px 14px", cursor: "pointer", fontFamily: "Georgia, serif" }}>Saved Estimates ({savedEstimates.length})</button>
+          <button onClick={() => { setQtys({}); setClientName(""); }} style={{ background: "transparent", border: `1px solid ${C.border}`, borderRadius: 6, color: C.dim, fontSize: 12, padding: "6px 14px", cursor: "pointer", fontFamily: "Georgia, serif" }}>Reset</button>
         </div>
       </div>
+
       {showSaved && (
-        <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12, marginBottom: 16, overflow: "hidden" }}>
-          <div style={{ padding: "10px 14px", fontSize: 10, letterSpacing: 2, color: C.dim, borderBottom: `1px solid ${C.faint}` }}>SAVED ESTIMATES</div>
-          {savedEstimates.length === 0 ? <div style={{ padding: "14px", color: C.dim, fontSize: 13 }}>No saved estimates yet.</div> :
+        <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 8, padding: "16px", marginBottom: 20 }}>
+          <div style={{ fontSize: 11, letterSpacing: 2, color: C.dim, marginBottom: 12 }}>SAVED ESTIMATES</div>
+          {savedEstimates.length === 0 ? <div style={{ color: C.dim, fontSize: 13 }}>No saved estimates yet.</div> :
             savedEstimates.map(est => (
-              <div key={est.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 14px", borderBottom: `1px solid ${C.faint}` }}>
+              <div key={est.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 0", borderBottom: `1px solid ${C.faint}` }}>
                 <div>
                   <div style={{ fontSize: 14, color: C.text }}>{est.client_name}</div>
-                  <div style={{ fontSize: 11, color: C.dim, marginTop: 2 }}>{fmt(est.total)}</div>
+                  <div style={{ fontSize: 11, color: C.dim, marginTop: 2 }}>{fmt(est.total)} · {new Date(est.created_at).toLocaleDateString("en-CA")}</div>
                 </div>
                 <div style={{ display: "flex", gap: 8 }}>
-                  <button onClick={() => loadEstimate(est)} style={{ background: C.gold, color: C.bg, border: "none", borderRadius: 8, fontSize: 12, padding: "6px 12px", cursor: "pointer", fontFamily: "Georgia, serif" }}>Load</button>
-                  <button onClick={() => deleteEstimate(est.id)} style={{ background: "transparent", border: `1px solid ${C.border}`, borderRadius: 8, color: C.red, fontSize: 12, padding: "6px 12px", cursor: "pointer", fontFamily: "Georgia, serif" }}>Del</button>
+                  <button onClick={() => loadEstimate(est)} style={{ background: C.gold, color: C.bg, border: "none", borderRadius: 4, fontSize: 11, padding: "4px 12px", cursor: "pointer", fontFamily: "Georgia, serif" }}>Load</button>
+                  <button onClick={() => deleteEstimate(est.id)} style={{ background: "transparent", border: `1px solid ${C.border}`, borderRadius: 4, color: C.red, fontSize: 11, padding: "4px 12px", cursor: "pointer", fontFamily: "Georgia, serif" }}>Delete</button>
                 </div>
               </div>
             ))}
         </div>
       )}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: total > 0 ? 80 : 0 }}>
-        {ROOMS.map(r => {
-          const qty = qtys[r.id] || 0;
-          return (
-            <div key={r.id} style={{
-              background: qty > 0 ? C.faint : C.surface,
-              border: `1px solid ${qty > 0 ? C.gold : C.border}`,
-              borderRadius: 12, padding: "12px 10px",
-              display: "flex", justifyContent: "space-between", alignItems: "center"
-            }}>
-              <div style={{ flex: 1, minWidth: 0, marginRight: 8 }}>
-                <div style={{ fontSize: 12, color: C.text, lineHeight: 1.3 }}>{r.label}</div>
-                <div style={{ fontSize: 11, color: C.dim, marginTop: 2 }}>{fmt(r.cost)}</div>
-              </div>
-              <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
-                <button onClick={() => setQty(r.id, qty - 1)} style={{ width: 28, height: 28, borderRadius: "50%", background: C.faint, border: `1px solid ${C.border}`, color: C.text, cursor: "pointer", fontSize: 18, display: "flex", alignItems: "center", justifyContent: "center", WebkitTapHighlightColor: "transparent" }}>−</button>
-                <span style={{ fontSize: 14, color: C.text, minWidth: 16, textAlign: "center" }}>{qty}</span>
-                <button onClick={() => setQty(r.id, qty + 1)} style={{ width: 28, height: 28, borderRadius: "50%", background: C.faint, border: `1px solid ${C.border}`, color: C.text, cursor: "pointer", fontSize: 18, display: "flex", alignItems: "center", justifyContent: "center", WebkitTapHighlightColor: "transparent" }}>+</button>
-              </div>
-            </div>
-          );
-        })}
+
+      <div style={{ marginBottom: 20 }}>
+        <input value={clientName} onChange={e => setClientName(e.target.value)} placeholder="Client name…" style={{
+          width: "100%", background: C.surface, border: `1px solid ${C.border}`, borderRadius: 8,
+          color: C.text, padding: "12px 14px", fontSize: 15, outline: "none",
+          fontFamily: "Georgia, serif", boxSizing: "border-box"
+        }} />
       </div>
-      {total > 0 && (
-        <div style={{ position: "sticky", bottom: 0, padding: "12px 0 0", background: C.bg }}>
-          <button onClick={() => setShowSummary(true)} style={{
-            width: "100%", background: C.gold, color: C.bg, border: "none",
-            borderRadius: 14, padding: "17px", cursor: "pointer", fontSize: 16,
-            fontFamily: "Georgia, serif", display: "flex", justifyContent: "space-between", alignItems: "center"
+
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 32 }}>
+        {ROOMS.map(r => (
+          <div key={r.id} style={{
+            background: (qtys[r.id] || 0) > 0 ? C.faint : C.surface,
+            border: `1px solid ${(qtys[r.id] || 0) > 0 ? C.gold : C.border}`,
+            borderRadius: 8, padding: "10px 14px", display: "flex", justifyContent: "space-between", alignItems: "center"
           }}>
-            <span>View Estimate</span>
-            <span style={{ fontWeight: 700 }}>{fmt(total)}</span>
-          </button>
+            <div>
+              <div style={{ fontSize: 13, color: C.text }}>{r.label}</div>
+              <div style={{ fontSize: 11, color: C.dim, marginTop: 2 }}>{fmt(r.cost)}</div>
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <button onClick={() => setQty(r.id, (qtys[r.id] || 0) - 1)} style={{ width: 24, height: 24, borderRadius: "50%", background: C.faint, border: `1px solid ${C.border}`, color: C.text, cursor: "pointer", fontSize: 16, display: "flex", alignItems: "center", justifyContent: "center" }}>−</button>
+              <span style={{ fontSize: 14, color: C.text, minWidth: 16, textAlign: "center" }}>{qtys[r.id] || 0}</span>
+              <button onClick={() => setQty(r.id, (qtys[r.id] || 0) + 1)} style={{ width: 24, height: 24, borderRadius: "50%", background: C.faint, border: `1px solid ${C.border}`, color: C.text, cursor: "pointer", fontSize: 16, display: "flex", alignItems: "center", justifyContent: "center" }}>+</button>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {total > 0 && (
+        <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 8, padding: "20px 24px" }}>
+          <div style={{ fontSize: 11, letterSpacing: 2, color: C.dim, marginBottom: 16 }}>ESTIMATE SUMMARY{clientName ? ` — ${clientName.toUpperCase()}` : ""}</div>
+          <div style={{ marginBottom: 16 }}>
+            {selectedRooms.map(r => (
+              <div key={r.id} style={{ display: "flex", justifyContent: "space-between", fontSize: 13, color: C.muted, padding: "4px 0", borderBottom: `1px solid ${C.faint}` }}>
+                <span>{r.label} × {qtys[r.id]}</span><span>{fmt(r.cost * qtys[r.id])}</span>
+              </div>
+            ))}
+          </div>
+          <div style={{ display: "flex", justifyContent: "space-between", fontSize: 16, color: C.text, marginBottom: 20, paddingTop: 8 }}>
+            <span>TOTAL</span><span style={{ color: C.gold }}>{fmt(total)}</span>
+          </div>
+          <div style={{ fontSize: 11, letterSpacing: 2, color: C.dim, marginBottom: 12 }}>PAYMENT SCHEDULE</div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 20 }}>
+            {PHASES.map((p, i) => (
+              <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 14px", background: C.faint, borderRadius: 6 }}>
+                <div>
+                  <div style={{ fontSize: 13, color: C.text }}>{p.label}</div>
+                  <div style={{ fontSize: 11, color: C.dim, marginTop: 2 }}>{(p.pct * 100).toFixed(1)}%</div>
+                </div>
+                <div style={{ fontSize: 15, color: C.gold }}>{fmt(total * p.pct)}</div>
+              </div>
+            ))}
+          </div>
+          <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+            <button onClick={saveEstimate} style={{ background: C.gold, color: C.bg, border: "none", borderRadius: 6, padding: "10px 22px", cursor: "pointer", fontSize: 13, fontFamily: "Georgia, serif" }}>Save Estimate</button>
+            <button onClick={printEstimate} style={{ background: "transparent", border: `1px solid ${C.border}`, borderRadius: 6, color: C.muted, padding: "10px 22px", cursor: "pointer", fontSize: 13, fontFamily: "Georgia, serif" }}>Print / Export PDF</button>
+            {saveStatus && <span style={{ fontSize: 12, color: C.gold }}>{saveStatus}</span>}
+          </div>
         </div>
       )}
     </div>
   );
 };
 
-// ── FURNISHINGS TAB ───────────────────────────────────────────────────────────
-const FurnishingsTab = () => {
+const FurnishingsEstimator = () => {
   const [clientName, setClientName] = useState("");
   const [rooms, setRooms] = useState([]);
   const [installDays, setInstallDays] = useState([]);
   const [showInstall, setShowInstall] = useState(false);
-  const [showSummary, setShowSummary] = useState(false);
+  const [saveStatus, setSaveStatus] = useState("");
 
-  const addRoom = (room) => { if (rooms.find(r => r.id === room.id)) return; setRooms(r => [...r, { ...room, roomClass: "Major" }]); };
+  const addClass = (room) => {
+    if (rooms.find(r => r.id === room.id)) return;
+    setRooms(r => [...r, { ...room, roomClass: "Major" }]);
+  };
   const setRoomClass = (id, roomClass) => setRooms(r => r.map(rm => rm.id === id ? { ...rm, roomClass } : rm));
   const removeRoom = (id) => setRooms(r => r.filter(rm => rm.id !== id));
 
   let majorCount = 0;
   const roomsWithPrices = rooms.map(r => {
     let price;
-    if (r.roomClass === "Major") { price = r.basePrice * MAJOR_DISCOUNT[Math.min(majorCount, MAJOR_DISCOUNT.length - 1)]; majorCount++; }
-    else { price = r.basePrice * CLASS_FACTORS[r.roomClass]; }
+    if (r.roomClass === "Major") {
+      const discountIdx = Math.min(majorCount, MAJOR_DISCOUNT.length - 1);
+      price = r.basePrice * MAJOR_DISCOUNT[discountIdx];
+      majorCount++;
+    } else {
+      price = r.basePrice * CLASS_FACTORS[r.roomClass];
+    }
     return { ...r, price };
   });
 
   const roomsTotal = roomsWithPrices.reduce((s, r) => s + r.price, 0);
-  const installTotal = installDays.reduce((sum, d) => sum + (250 * d.hours) + (125 * d.admin * d.hours) + (175 * d.designers * d.hours), 0);
-  const grandTotal = ANCHOR_FEE + roomsTotal + (showInstall ? installTotal : 0);
-
   const addInstallDay = () => setInstallDays(d => [...d, { hours: 8, admin: 0, designers: 0 }]);
   const removeInstallDay = (i) => setInstallDays(d => d.filter((_, idx) => idx !== i));
   const updateDay = (i, key, val) => setInstallDays(d => d.map((day, idx) => idx === i ? { ...day, [key]: Math.max(0, parseInt(val) || 0) } : day));
+  const installTotal = installDays.reduce((sum, d) => sum + (250 * d.hours) + (125 * d.admin * d.hours) + (175 * d.designers * d.hours), 0);
+  const grandTotal = ANCHOR_FEE + roomsTotal + (showInstall ? installTotal : 0);
 
   const printEstimate = () => {
+    const printContent = `
+      <html><head><title>Rose & Funk — ${clientName || "Project"} Furnishings Estimate</title>
+      <style>
+        body { font-family: Georgia, serif; color: #1a1814; padding: 40px; max-width: 700px; margin: 0 auto; }
+        h1 { font-size: 28px; letter-spacing: 4px; margin-bottom: 4px; }
+        h2 { font-size: 12px; letter-spacing: 3px; color: #8a7a65; font-weight: normal; margin-bottom: 32px; }
+        .client { font-size: 18px; margin-bottom: 8px; }
+        table { width: 100%; border-collapse: collapse; margin-bottom: 24px; }
+        th { text-align: left; font-size: 11px; letter-spacing: 2px; color: #8a7a65; padding: 8px 0; border-bottom: 1px solid #d4cdc4; }
+        td { padding: 8px 0; font-size: 13px; border-bottom: 1px solid #f0ebe3; }
+        td:last-child { text-align: right; }
+        .fee-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #f0ebe3; font-size: 13px; }
+        .grand { display: flex; justify-content: space-between; padding: 14px 0; font-size: 18px; font-weight: bold; border-top: 2px solid #1a1814; margin-top: 8px; }
+        .section { margin-top: 24px; font-size: 11px; letter-spacing: 2px; color: #8a7a65; margin-bottom: 8px; }
+        .footer { margin-top: 48px; font-size: 11px; color: #8a7a65; letter-spacing: 1px; }
+      </style></head><body>
+      <h1>ROSE & FUNK</h1>
+      <h2>FURNISHINGS — PROJECT ESTIMATE</h2>
+      <div class="client">Client: ${clientName || "—"}</div>
+      <div class="client" style="font-size:13px;color:#8a7a65;margin-bottom:24px;">Date: ${new Date().toLocaleDateString("en-CA", { year: "numeric", month: "long", day: "numeric" })}</div>
+      <div class="section">PROJECT FEES</div>
+      <div class="fee-row"><span>Anchor Fee (Project Activation)</span><span><strong>${fmt(ANCHOR_FEE)}</strong></span></div>
+      <div class="section">ROOM ADD-ONS</div>
+      <table>
+        <tr><th>ROOM</th><th>CLASS</th><th>FEE</th></tr>
+        ${roomsWithPrices.map(r => `<tr><td>${r.label}</td><td>${r.roomClass}</td><td>${fmt(r.price)}</td></tr>`).join("")}
+        <tr><td colspan="2" style="font-size:12px;color:#8a7a65;">Room Total</td><td>${fmt(roomsTotal)}</td></tr>
+      </table>
+      ${showInstall && installTotal > 0 ? `
+        <div class="section">INSTALL & STYLING</div>
+        ${installDays.map((d, i) => `<div class="fee-row"><span>Day ${i + 1} — ${d.hours}hrs · ${d.admin} admin · ${d.designers} designers</span><span>${fmt((250 * d.hours) + (125 * d.admin * d.hours) + (175 * d.designers * d.hours))}</span></div>`).join("")}
+      ` : ""}
+      <div class="grand"><span>TOTAL FURNISHING FEE</span><span>${fmt(grandTotal)}</span></div>
+      <div class="footer">ROSE AND FUNK INTERIORS INC. · www.roseandfunk.com · 604.513.9118</div>
+      </body></html>`;
     const win = window.open("", "_blank");
-    win.document.write(`<html><head><title>Rose & Funk — ${clientName || "Project"} Furnishings</title>
-    <style>body{font-family:Georgia,serif;color:#1a1814;padding:40px;max-width:700px;margin:0 auto}h1{font-size:28px;letter-spacing:4px;margin-bottom:4px}h2{font-size:12px;letter-spacing:3px;color:#8a7a65;font-weight:normal;margin-bottom:32px}.row{display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid #f0ebe3;font-size:13px}.grand{display:flex;justify-content:space-between;padding:16px 0;font-size:18px;font-weight:bold;border-top:2px solid #1a1814;margin-top:8px}.footer{margin-top:48px;font-size:11px;color:#8a7a65;letter-spacing:1px}.section{font-size:11px;letter-spacing:2px;color:#8a7a65;margin:20px 0 8px}</style></head><body>
-    <h1>ROSE & FUNK</h1><h2>FURNISHINGS — PROJECT ESTIMATE</h2>
-    <div style="font-size:18px;margin-bottom:8px">Client: ${clientName || "—"}</div>
-    <div style="font-size:13px;color:#8a7a65;margin-bottom:24px">Date: ${new Date().toLocaleDateString("en-CA", { year: "numeric", month: "long", day: "numeric" })}</div>
-    <div class="section">PROJECT FEES</div>
-    <div class="row"><span>Anchor Fee</span><span><strong>${fmt(ANCHOR_FEE)}</strong></span></div>
-    <div class="section">ROOM ADD-ONS</div>
-    ${roomsWithPrices.map(r => `<div class="row"><span>${r.label} (${r.roomClass})</span><span>${fmt(r.price)}</span></div>`).join("")}
-    ${showInstall && installTotal > 0 ? `<div class="section">INSTALL & STYLING</div>${installDays.map((d,i) => `<div class="row"><span>Day ${i+1} — ${d.hours}hrs</span><span>${fmt((250*d.hours)+(125*d.admin*d.hours)+(175*d.designers*d.hours))}</span></div>`).join("")}` : ""}
-    <div class="grand"><span>TOTAL FURNISHING FEE</span><span>${fmt(grandTotal)}</span></div>
-    <div class="footer">ROSE AND FUNK INTERIORS INC. · www.roseandfunk.com · 604.513.9118</div></body></html>`);
-    win.document.close(); win.print();
+    win.document.write(printContent);
+    win.document.close();
+    win.print();
   };
 
-  if (showSummary) return (
-    <div style={{ flex: 1, overflowY: "auto", padding: 16, display: "flex", flexDirection: "column", gap: 14 }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-        <button onClick={() => setShowSummary(false)} style={{ background: C.faint, border: "none", borderRadius: 10, padding: "8px 14px", color: C.muted, cursor: "pointer", fontSize: 13, fontFamily: "Georgia, serif" }}>← Back</button>
-        <div style={{ fontSize: 11, letterSpacing: 2, color: C.dim }}>FURNISHINGS ESTIMATE</div>
-      </div>
-      <input value={clientName} onChange={e => setClientName(e.target.value)} placeholder="Client name…" style={{ width: "100%", background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12, color: C.text, padding: "14px 16px", fontSize: 16, outline: "none", fontFamily: "Georgia, serif", boxSizing: "border-box" }} />
-      <div style={{ background: C.surface, border: `1px solid ${C.gold}`, borderRadius: 14, padding: "14px 16px", display: "flex", justifyContent: "space-between" }}>
+  return (
+    <div style={{ flex: 1, maxWidth: 900, width: "100%", margin: "0 auto", padding: "24px 16px", overflowY: "auto" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 20 }}>
         <div>
-          <div style={{ fontSize: 14, color: C.text }}>Anchor Fee</div>
-          <div style={{ fontSize: 11, color: C.dim, marginTop: 2 }}>Project Activation</div>
+          <div style={{ fontSize: 11, letterSpacing: 2, color: C.dim }}>FURNISHINGS ESTIMATOR</div>
+          <div style={{ fontSize: 12, color: C.dim, marginTop: 4 }}>Anchor Fee {fmt(ANCHOR_FEE)} · Major/Secondary/Styling pricing</div>
+        </div>
+        <button onClick={() => { setRooms([]); setClientName(""); setInstallDays([]); setShowInstall(false); }} style={{ background: "transparent", border: `1px solid ${C.border}`, borderRadius: 6, color: C.dim, fontSize: 12, padding: "6px 14px", cursor: "pointer", fontFamily: "Georgia, serif" }}>Reset</button>
+      </div>
+
+      <div style={{ marginBottom: 20 }}>
+        <input value={clientName} onChange={e => setClientName(e.target.value)} placeholder="Client name…" style={{
+          width: "100%", background: C.surface, border: `1px solid ${C.border}`, borderRadius: 8,
+          color: C.text, padding: "12px 14px", fontSize: 15, outline: "none",
+          fontFamily: "Georgia, serif", boxSizing: "border-box"
+        }} />
+      </div>
+
+      <div style={{ background: C.surface, border: `1px solid ${C.gold}`, borderRadius: 8, padding: "14px 18px", marginBottom: 20, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <div>
+          <div style={{ fontSize: 13, color: C.text }}>Anchor Fee — Project Activation</div>
+          <div style={{ fontSize: 11, color: C.dim, marginTop: 2 }}>Meetings · Setup · Core Sourcing · Admin · Project Management</div>
         </div>
         <div style={{ fontSize: 16, color: C.gold }}>{fmt(ANCHOR_FEE)}</div>
       </div>
-      {roomsWithPrices.length > 0 && (
-        <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 14, overflow: "hidden" }}>
-          {roomsWithPrices.map((r, i) => (
-            <div key={r.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "13px 16px", borderBottom: i < roomsWithPrices.length - 1 ? `1px solid ${C.faint}` : "none" }}>
-              <div>
-                <div style={{ fontSize: 14, color: C.text }}>{r.label}</div>
-                <div style={{ fontSize: 11, color: C.dim, marginTop: 2 }}>{r.roomClass}</div>
-              </div>
-              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                <select value={r.roomClass} onChange={e => setRoomClass(r.id, e.target.value)} style={{ background: C.faint, border: `1px solid ${C.border}`, borderRadius: 6, color: C.text, padding: "4px 8px", fontSize: 12, fontFamily: "Georgia, serif" }}>
-                  <option value="Major">Major</option>
-                  <option value="Secondary">Secondary</option>
-                  <option value="Styling">Styling</option>
-                </select>
-                <span style={{ fontSize: 14, color: C.gold, minWidth: 64, textAlign: "right" }}>{fmt(r.price)}</span>
-                <button onClick={() => removeRoom(r.id)} style={{ background: "transparent", border: "none", color: C.dim, cursor: "pointer", fontSize: 18, padding: "0 4px" }}>×</button>
-              </div>
-            </div>
-          ))}
-          <div style={{ display: "flex", justifyContent: "space-between", padding: "12px 16px", background: C.faint }}>
-            <span style={{ fontSize: 13, color: C.muted }}>Rooms subtotal</span>
-            <span style={{ fontSize: 13, color: C.muted }}>{fmt(roomsTotal)}</span>
-          </div>
-        </div>
-      )}
-      <button onClick={() => setShowInstall(!showInstall)} style={{ background: showInstall ? C.faint : "transparent", border: `1px solid ${showInstall ? C.gold : C.border}`, borderRadius: 12, padding: "14px 16px", cursor: "pointer", color: showInstall ? C.gold : C.muted, fontSize: 14, fontFamily: "Georgia, serif", textAlign: "left" }}>
-        {showInstall ? "▼" : "▶"} Install & Styling {showInstall && installTotal > 0 ? `— ${fmt(installTotal)}` : ""}
-      </button>
-      {showInstall && (
-        <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12, padding: 16 }}>
-          <div style={{ fontSize: 11, color: C.dim, marginBottom: 12 }}>Gregory $250/hr · Admin $125/hr · Designer $175/hr</div>
-          {installDays.map((d, i) => (
-            <div key={i} style={{ display: "flex", gap: 10, alignItems: "center", marginBottom: 12, flexWrap: "wrap" }}>
-              <span style={{ fontSize: 13, color: C.muted, minWidth: 44 }}>Day {i+1}</span>
-              <select value={d.hours} onChange={e => updateDay(i, "hours", e.target.value)} style={{ background: C.faint, border: `1px solid ${C.border}`, borderRadius: 6, color: C.text, padding: "6px 8px", fontSize: 13, fontFamily: "Georgia, serif" }}>
-                <option value={4}>4 hrs</option><option value={8}>8 hrs</option>
-              </select>
-              {[["admin","Admin"],["designers","Designer"]].map(([key, label]) => (
-                <div key={key} style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                  <span style={{ fontSize: 11, color: C.dim }}>{label}</span>
-                  <button onClick={() => updateDay(i, key, d[key]-1)} style={{ width: 28, height: 28, borderRadius: "50%", background: C.faint, border: `1px solid ${C.border}`, color: C.text, cursor: "pointer", fontSize: 16, display: "flex", alignItems: "center", justifyContent: "center" }}>−</button>
-                  <span style={{ fontSize: 13, color: C.text, minWidth: 16, textAlign: "center" }}>{d[key]}</span>
-                  <button onClick={() => updateDay(i, key, d[key]+1)} style={{ width: 28, height: 28, borderRadius: "50%", background: C.faint, border: `1px solid ${C.border}`, color: C.text, cursor: "pointer", fontSize: 16, display: "flex", alignItems: "center", justifyContent: "center" }}>+</button>
-                </div>
-              ))}
-              <span style={{ fontSize: 13, color: C.gold, marginLeft: "auto" }}>{fmt((250*d.hours)+(125*d.admin*d.hours)+(175*d.designers*d.hours))}</span>
-              <button onClick={() => removeInstallDay(i)} style={{ background: "transparent", border: "none", color: C.dim, cursor: "pointer", fontSize: 18 }}>×</button>
-            </div>
-          ))}
-          <button onClick={addInstallDay} style={{ background: "transparent", border: `1px solid ${C.border}`, borderRadius: 8, color: C.muted, fontSize: 13, padding: "8px 16px", cursor: "pointer", fontFamily: "Georgia, serif" }}>+ Add Day</button>
-        </div>
-      )}
-      <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 14, padding: "16px" }}>
-        <div style={{ display: "flex", justifyContent: "space-between", fontSize: 20, color: C.gold, marginBottom: 16 }}>
-          <span>TOTAL</span><span>{fmt(grandTotal)}</span>
-        </div>
-        <button onClick={printEstimate} style={{ width: "100%", background: C.gold, color: C.bg, border: "none", borderRadius: 12, padding: "15px", cursor: "pointer", fontSize: 15, fontFamily: "Georgia, serif" }}>Print / Export PDF</button>
-      </div>
-    </div>
-  );
 
-  return (
-    <div style={{ flex: 1, overflowY: "auto", padding: 16 }}>
-      <div style={{ fontSize: 11, letterSpacing: 2, color: C.dim, marginBottom: 12 }}>ADD ROOMS</div>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: rooms.length > 0 ? 80 : 0 }}>
+      <div style={{ fontSize: 11, letterSpacing: 2, color: C.dim, marginBottom: 10 }}>ADD ROOMS</div>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6, marginBottom: 24 }}>
         {FURN_ROOMS.filter(r => !rooms.find(x => x.id === r.id)).map(r => (
-          <button key={r.id} onClick={() => addRoom(r)} style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12, padding: "13px 12px", cursor: "pointer", textAlign: "left", fontFamily: "Georgia, serif", WebkitTapHighlightColor: "transparent" }}>
+          <button key={r.id} onClick={() => addClass(r)} style={{
+            background: C.surface, border: `1px solid ${C.border}`, borderRadius: 8,
+            padding: "10px 14px", cursor: "pointer", textAlign: "left", fontFamily: "Georgia, serif"
+          }}>
             <div style={{ fontSize: 13, color: C.text }}>{r.label}</div>
-            <div style={{ fontSize: 11, color: C.dim, marginTop: 3 }}>from {fmt(r.basePrice * 0.3)}</div>
+            <div style={{ fontSize: 11, color: C.dim, marginTop: 2 }}>from {fmt(r.basePrice * 0.3)}</div>
           </button>
         ))}
       </div>
+
       {rooms.length > 0 && (
-        <div style={{ position: "sticky", bottom: 0, padding: "12px 0 0", background: C.bg }}>
-          <button onClick={() => setShowSummary(true)} style={{ width: "100%", background: C.gold, color: C.bg, border: "none", borderRadius: 14, padding: "17px", cursor: "pointer", fontSize: 16, fontFamily: "Georgia, serif", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <span>View Estimate ({rooms.length} rooms)</span>
-            <span style={{ fontWeight: 700 }}>{fmt(grandTotal)}</span>
-          </button>
+        <div style={{ marginBottom: 24 }}>
+          <div style={{ fontSize: 11, letterSpacing: 2, color: C.dim, marginBottom: 10 }}>SELECTED ROOMS</div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            {roomsWithPrices.map((r, idx) => {
+              const majorIdx = roomsWithPrices.filter((x, i) => x.roomClass === "Major" && i <= idx).length - 1;
+              return (
+                <div key={r.id} style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 8, padding: "12px 16px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: 13, color: C.text }}>{r.label}</div>
+                    {r.roomClass === "Major" && majorIdx >= 0 && (
+                      <div style={{ fontSize: 10, color: C.dim, marginTop: 2 }}>Major #{majorIdx + 1} — {(MAJOR_DISCOUNT[Math.min(majorIdx, MAJOR_DISCOUNT.length - 1)] * 100).toFixed(0)}% rate</div>
+                    )}
+                  </div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                    <select value={r.roomClass} onChange={e => setRoomClass(r.id, e.target.value)} style={{
+                      background: C.faint, border: `1px solid ${C.border}`, borderRadius: 4,
+                      color: C.text, padding: "4px 8px", fontSize: 12, fontFamily: "Georgia, serif", cursor: "pointer"
+                    }}>
+                      <option value="Major">Major</option>
+                      <option value="Secondary">Secondary</option>
+                      <option value="Styling">Styling</option>
+                    </select>
+                    <div style={{ fontSize: 14, color: C.gold, minWidth: 70, textAlign: "right" }}>{fmt(r.price)}</div>
+                    <button onClick={() => removeRoom(r.id)} style={{ background: "transparent", border: "none", color: C.dim, cursor: "pointer", fontSize: 16, padding: "0 4px" }}>×</button>
+                  </div>
+                </div>
+              );
+            })}
+            <div style={{ display: "flex", justifyContent: "space-between", padding: "8px 16px", fontSize: 13, color: C.muted }}>
+              <span>Rooms Subtotal</span><span>{fmt(roomsTotal)}</span>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div style={{ marginBottom: 24 }}>
+        <button onClick={() => setShowInstall(!showInstall)} style={{
+          background: showInstall ? C.faint : "transparent",
+          border: `1px solid ${showInstall ? C.gold : C.border}`,
+          borderRadius: 8, padding: "12px 18px", cursor: "pointer",
+          color: showInstall ? C.gold : C.muted, fontSize: 13, fontFamily: "Georgia, serif", width: "100%", textAlign: "left"
+        }}>
+          {showInstall ? "▼" : "▶"} Install & Styling Days {showInstall && installTotal > 0 ? `— ${fmt(installTotal)}` : ""}
+        </button>
+        {showInstall && (
+          <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 8, padding: "16px", marginTop: 8 }}>
+            <div style={{ fontSize: 11, color: C.dim, marginBottom: 12 }}>Gregory: $250/hr · Admin: $125/hr · Designer: $175/hr</div>
+            {installDays.map((d, i) => (
+              <div key={i} style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 8, flexWrap: "wrap" }}>
+                <div style={{ fontSize: 13, color: C.muted, minWidth: 48 }}>Day {i + 1}</div>
+                <select value={d.hours} onChange={e => updateDay(i, "hours", e.target.value)} style={{ background: C.faint, border: `1px solid ${C.border}`, borderRadius: 4, color: C.text, padding: "4px 8px", fontSize: 12, fontFamily: "Georgia, serif" }}>
+                  <option value={4}>4 hrs</option>
+                  <option value={8}>8 hrs</option>
+                </select>
+                <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                  <span style={{ fontSize: 11, color: C.dim }}>Admin</span>
+                  <button onClick={() => updateDay(i, "admin", d.admin - 1)} style={{ width: 20, height: 20, borderRadius: "50%", background: C.faint, border: `1px solid ${C.border}`, color: C.text, cursor: "pointer", fontSize: 12, display: "flex", alignItems: "center", justifyContent: "center" }}>−</button>
+                  <span style={{ fontSize: 13, color: C.text, minWidth: 16, textAlign: "center" }}>{d.admin}</span>
+                  <button onClick={() => updateDay(i, "admin", d.admin + 1)} style={{ width: 20, height: 20, borderRadius: "50%", background: C.faint, border: `1px solid ${C.border}`, color: C.text, cursor: "pointer", fontSize: 12, display: "flex", alignItems: "center", justifyContent: "center" }}>+</button>
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                  <span style={{ fontSize: 11, color: C.dim }}>Designers</span>
+                  <button onClick={() => updateDay(i, "designers", d.designers - 1)} style={{ width: 20, height: 20, borderRadius: "50%", background: C.faint, border: `1px solid ${C.border}`, color: C.text, cursor: "pointer", fontSize: 12, display: "flex", alignItems: "center", justifyContent: "center" }}>−</button>
+                  <span style={{ fontSize: 13, color: C.text, minWidth: 16, textAlign: "center" }}>{d.designers}</span>
+                  <button onClick={() => updateDay(i, "designers", d.designers + 1)} style={{ width: 20, height: 20, borderRadius: "50%", background: C.faint, border: `1px solid ${C.border}`, color: C.text, cursor: "pointer", fontSize: 12, display: "flex", alignItems: "center", justifyContent: "center" }}>+</button>
+                </div>
+                <div style={{ fontSize: 13, color: C.gold, marginLeft: "auto" }}>{fmt((250 * d.hours) + (125 * d.admin * d.hours) + (175 * d.designers * d.hours))}</div>
+                <button onClick={() => removeInstallDay(i)} style={{ background: "transparent", border: "none", color: C.dim, cursor: "pointer", fontSize: 16 }}>×</button>
+              </div>
+            ))}
+            <button onClick={addInstallDay} style={{ background: "transparent", border: `1px solid ${C.border}`, borderRadius: 6, color: C.muted, fontSize: 12, padding: "6px 14px", cursor: "pointer", fontFamily: "Georgia, serif", marginTop: 4 }}>+ Add Day</button>
+          </div>
+        )}
+      </div>
+
+      {(rooms.length > 0 || (showInstall && installTotal > 0)) && (
+        <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 8, padding: "20px 24px" }}>
+          <div style={{ fontSize: 11, letterSpacing: 2, color: C.dim, marginBottom: 16 }}>TOTAL FURNISHING FEE{clientName ? ` — ${clientName.toUpperCase()}` : ""}</div>
+          <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, color: C.muted, padding: "6px 0", borderBottom: `1px solid ${C.faint}` }}>
+            <span>Anchor Fee</span><span>{fmt(ANCHOR_FEE)}</span>
+          </div>
+          {rooms.length > 0 && (
+            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, color: C.muted, padding: "6px 0", borderBottom: `1px solid ${C.faint}` }}>
+              <span>Room Add-Ons</span><span>{fmt(roomsTotal)}</span>
+            </div>
+          )}
+          {showInstall && installTotal > 0 && (
+            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, color: C.muted, padding: "6px 0", borderBottom: `1px solid ${C.faint}` }}>
+              <span>Install & Styling</span><span>{fmt(installTotal)}</span>
+            </div>
+          )}
+          <div style={{ display: "flex", justifyContent: "space-between", fontSize: 18, color: C.gold, paddingTop: 12, marginBottom: 20 }}>
+            <span>TOTAL</span><span>{fmt(grandTotal)}</span>
+          </div>
+          <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+            <button onClick={printEstimate} style={{ background: C.gold, color: C.bg, border: "none", borderRadius: 6, padding: "10px 22px", cursor: "pointer", fontSize: 13, fontFamily: "Georgia, serif" }}>Print / Export PDF</button>
+            {saveStatus && <span style={{ fontSize: 12, color: C.gold }}>{saveStatus}</span>}
+          </div>
         </div>
       )}
     </div>
   );
 };
 
-// ── PROCEDURES TAB ────────────────────────────────────────────────────────────
-const ProceduresTab = () => {
-  const [expandedCat, setExpandedCat] = useState(null);
-  const [expandedProc, setExpandedProc] = useState(null);
-
-  return (
-    <div style={{ flex: 1, overflowY: "auto", padding: "12px 16px" }}>
-      {PROCEDURES.map((cat, ci) => (
-        <div key={ci} style={{ marginBottom: 8 }}>
-          <button onClick={() => { setExpandedCat(expandedCat === ci ? null : ci); setExpandedProc(null); }} style={{
-            width: "100%", background: C.surface, border: `1px solid ${expandedCat === ci ? C.gold : C.border}`,
-            borderRadius: 12, padding: "16px", cursor: "pointer", textAlign: "left",
-            fontFamily: "Georgia, serif", display: "flex", justifyContent: "space-between", alignItems: "center",
-            WebkitTapHighlightColor: "transparent"
-          }}>
-            <div style={{ fontSize: 12, letterSpacing: 1.5, color: expandedCat === ci ? C.gold : C.muted, textTransform: "uppercase" }}>{cat.category}</div>
-            <div style={{ color: C.dim, fontSize: 18, flexShrink: 0 }}>{expandedCat === ci ? "−" : "+"}</div>
-          </button>
-          {expandedCat === ci && (
-            <div style={{ marginTop: 6, display: "flex", flexDirection: "column", gap: 6, paddingLeft: 8 }}>
-              {cat.items.map((proc, pi) => {
-                const key = `${ci}-${pi}`;
-                const open = expandedProc === key;
-                return (
-                  <div key={pi} style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 10, overflow: "hidden" }}>
-                    <button onClick={() => setExpandedProc(open ? null : key)} style={{
-                      width: "100%", padding: "14px 16px", cursor: "pointer", background: "transparent",
-                      border: "none", textAlign: "left", fontFamily: "Georgia, serif",
-                      display: "flex", justifyContent: "space-between", alignItems: "center",
-                      WebkitTapHighlightColor: "transparent"
-                    }}>
-                      <div style={{ flex: 1, paddingRight: 8 }}>
-                        <div style={{ fontSize: 14, color: C.text, lineHeight: 1.3 }}>{proc.title}</div>
-                        <div style={{ fontSize: 10, color: ownerColor(proc.owner), marginTop: 4, letterSpacing: 1 }}>{proc.owner}</div>
-                      </div>
-                      <div style={{ color: C.dim, fontSize: 16, flexShrink: 0 }}>{open ? "−" : "+"}</div>
-                    </button>
-                    {open && (
-                      <div style={{ borderTop: `1px solid ${C.border}`, padding: "12px 16px", display: "flex", flexDirection: "column", gap: 12 }}>
-                        {proc.steps.map((step, si) => (
-                          <div key={si} style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
-                            <div style={{ width: 24, height: 24, borderRadius: "50%", background: C.faint, color: C.dim, fontSize: 11, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginTop: 1 }}>{si + 1}</div>
-                            <div style={{ flex: 1 }}>
-                              <div style={{ fontSize: 14, color: C.text, lineHeight: 1.5 }}>{step.text}</div>
-                              <div style={{ fontSize: 10, color: ownerColor(step.owner), marginTop: 4, letterSpacing: 1 }}>{step.owner}</div>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
-      ))}
+const KnowledgeBaseTab = ({ knowledge, setKnowledge, kbStatus, saveKnowledge, documents, uploading, fileRef, handleFileUpload, deleteDoc }) => (
+  <div style={{ flex: 1, maxWidth: 800, width: "100%", margin: "0 auto", padding: "24px 16px", display: "flex", flexDirection: "column", gap: 24, overflowY: "auto" }}>
+    <div>
+      <div style={{ fontSize: 11, letterSpacing: 2, color: C.dim, marginBottom: 10 }}>KNOWLEDGE BASE — saved to database, persists for all team members</div>
+      <textarea value={knowledge} onChange={e => setKnowledge(e.target.value)} rows={16} style={{
+        width: "100%", background: C.surface, border: `1px solid ${C.border}`,
+        borderRadius: 8, color: C.text, padding: "14px", fontSize: 13,
+        fontFamily: "monospace", lineHeight: 1.6, resize: "vertical", outline: "none", boxSizing: "border-box"
+      }} />
+      <div style={{ display: "flex", alignItems: "center", gap: 14, marginTop: 12 }}>
+        <button onClick={saveKnowledge} style={{ background: C.gold, color: C.bg, border: "none", borderRadius: 6, padding: "10px 22px", cursor: "pointer", fontSize: 13, fontFamily: "Georgia, serif" }}>Save Knowledge Base</button>
+        {kbStatus && <span style={{ color: C.gold, fontSize: 13 }}>{kbStatus}</span>}
+      </div>
     </div>
-  );
-};
+    <div>
+      <div style={{ fontSize: 11, letterSpacing: 2, color: C.dim, marginBottom: 10 }}>UPLOADED DOCUMENTS — the AI reads these automatically</div>
+      <div onClick={() => fileRef.current?.click()} style={{ border: `2px dashed ${C.border}`, borderRadius: 8, padding: "24px", textAlign: "center", cursor: "pointer", color: C.dim, fontSize: 14, marginBottom: 12 }}>
+        {uploading ? "Uploading and extracting text…" : "Click to upload a file (PDF, TXT, or CSV)"}
+        <input ref={fileRef} type="file" accept=".txt,.csv,.md,.pdf" onChange={handleFileUpload} style={{ display: "none" }} />
+      </div>
+      {documents.length === 0 ? (
+        <div style={{ color: C.dim, fontSize: 13, textAlign: "center" }}>No documents uploaded yet.</div>
+      ) : (
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          {documents.map(doc => (
+            <div key={doc.id} style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 8, padding: "14px 18px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <div>
+                <div style={{ fontSize: 14, color: C.text }}>{doc.name}</div>
+                <div style={{ fontSize: 11, color: C.dim, marginTop: 3 }}>{doc.content.length.toLocaleString()} characters extracted</div>
+              </div>
+              <button onClick={() => deleteDoc(doc.id)} style={{ background: "transparent", border: `1px solid ${C.border}`, borderRadius: 4, color: C.red, fontSize: 11, padding: "4px 12px", cursor: "pointer", fontFamily: "Georgia, serif" }}>Delete</button>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  </div>
+);
 
-// ── KNOWLEDGE BASE TAB ────────────────────────────────────────────────────────
-const KnowledgeTab = ({ knowledge, setKnowledge }) => {
-  const [status, setStatus] = useState("");
-  const [uploading, setUploading] = useState(false);
+export default function App() {
+  const [tab, setTab] = useState("Chat");
+  const [messages, setMessages] = useState([{
+    role: "assistant",
+    content: "Hi! I'm your Rose & Funk business assistant. Ask me anything about your processes, client situations, or how to handle day-to-day operations — or browse the tabs for references and documents.",
+    type: "answer"
+  }]);
+  const [input, setInput] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [knowledge, setKnowledge] = useState("");
+  const [kbStatus, setKbStatus] = useState("");
   const [documents, setDocuments] = useState([]);
+  const [uploading, setUploading] = useState(false);
+  const [expandedProc, setExpandedProc] = useState(null);
+  const [saveMsg, setSaveMsg] = useState("");
+  const [searches, setSearches] = useState([]);
+  const [sessionId, setSessionId] = useState("");
+  const bottomRef = useRef(null);
   const fileRef = useRef(null);
 
-  useEffect(() => { api({ action: "load_documents" }).then(d => { if (d.documents) setDocuments(d.documents); }); }, []);
+  useEffect(() => {
+    const sid = getSessionId();
+    setSessionId(sid);
+    api({ action: "load_knowledge" }).then(d => { if (d.content) setKnowledge(d.content); });
+    api({ action: "load_documents" }).then(d => { if (d.documents) setDocuments(d.documents); });
+    api({ action: "load_searches", session_id: sid }).then(d => { if (d.searches) setSearches(d.searches); });
+  }, []);
 
-  const save = async () => {
-    setStatus("Saving…");
-    const data = await api({ action: "save_knowledge", content: knowledge });
-    setStatus(data.success ? "Saved ✓" : "Error");
-    setTimeout(() => setStatus(""), 2500);
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages, loading]);
+
+  const sendMessages = async (msgs) => {
+    setLoading(true);
+    try {
+      const data = await api({ messages: msgs.filter(m => m.type !== "clarifying") });
+      const newMsg = {
+        role: "assistant",
+        type: data.type || "answer",
+        content: data.type === "clarifying" ? null : (data.text || "Sorry, no response."),
+        clarifyData: data.type === "clarifying" ? data : null
+      };
+      setMessages([...msgs, newMsg]);
+    } catch {
+      setMessages([...msgs, { role: "assistant", type: "answer", content: "Something went wrong. Please try again." }]);
+    }
+    setLoading(false);
   };
 
-  const handleFile = async (e) => {
-    const file = e.target.files[0]; if (!file) return;
+  const send = async () => {
+    if (!input.trim() || loading) return;
+    const question = input.trim();
+    const userMsg = { role: "user", content: question, type: "answer" };
+    const updated = [...messages, userMsg];
+    setMessages(updated);
+    setInput("");
+    api({ action: "save_search", session_id: sessionId, question }).then(() => {
+      api({ action: "load_searches", session_id: sessionId }).then(d => { if (d.searches) setSearches(d.searches); });
+    });
+    await sendMessages(updated);
+  };
+
+  const handleClarifyAnswer = async (answer) => {
+    const userMsg = { role: "user", content: answer, type: "answer" };
+    const updated = [...messages, userMsg];
+    setMessages(updated);
+    await sendMessages(updated);
+  };
+
+  const reaskQuestion = (question) => { setInput(question); setTab("Chat"); };
+  const deleteSearch = async (id) => { await api({ action: "delete_search", id }); setSearches(s => s.filter(x => x.id !== id)); };
+
+  const saveKnowledge = async () => {
+    setKbStatus("Saving…");
+    const data = await api({ action: "save_knowledge", content: knowledge });
+    setKbStatus(data.success ? "Saved!" : "Error saving.");
+    setTimeout(() => setKbStatus(""), 2500);
+  };
+
+  const saveToKnowledge = async (content) => {
+    const merged = knowledge + "\n\n" + content;
+    setKnowledge(merged);
+    await api({ action: "save_knowledge", content: merged });
+    setSaveMsg("Saved to Knowledge Base!");
+    setTimeout(() => setSaveMsg(""), 2500);
+  };
+
+  const handleFileUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
     setUploading(true);
     try {
-      const text = file.type === "application/pdf" ? await extractPdfText(await file.arrayBuffer()) : await file.text();
+      let text = file.type === "application/pdf"
+        ? await extractPdfText(await file.arrayBuffer())
+        : await file.text();
       await api({ action: "save_document", name: file.name, text });
       const d = await api({ action: "load_documents" });
       if (d.documents) setDocuments(d.documents);
-    } catch (err) { console.error(err); }
-    setUploading(false); e.target.value = "";
+    } catch (err) { console.error("Upload error:", err); }
+    setUploading(false);
+    e.target.value = "";
   };
 
   const deleteDoc = async (id) => { await api({ action: "delete_document", id }); setDocuments(docs => docs.filter(d => d.id !== id)); };
 
   return (
-    <div style={{ flex: 1, overflowY: "auto", padding: 16, display: "flex", flexDirection: "column", gap: 20 }}>
-      <div>
-        <div style={{ fontSize: 11, letterSpacing: 2, color: C.dim, marginBottom: 10 }}>KNOWLEDGE BASE</div>
-        <textarea value={knowledge} onChange={e => setKnowledge(e.target.value)} rows={14} style={{
-          width: "100%", background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12,
-          color: C.text, padding: "14px", fontSize: 13, fontFamily: "monospace",
-          lineHeight: 1.6, resize: "none", outline: "none", boxSizing: "border-box"
-        }} />
-        <button onClick={save} style={{ width: "100%", background: C.gold, color: C.bg, border: "none", borderRadius: 12, padding: "15px", cursor: "pointer", fontSize: 15, fontFamily: "Georgia, serif", marginTop: 10 }}>
-          {status || "Save Knowledge Base"}
-        </button>
-      </div>
-      <div>
-        <div style={{ fontSize: 11, letterSpacing: 2, color: C.dim, marginBottom: 10 }}>UPLOADED DOCUMENTS</div>
-        <div onClick={() => fileRef.current?.click()} style={{ border: `2px dashed ${C.border}`, borderRadius: 12, padding: "24px 16px", textAlign: "center", cursor: "pointer", color: C.dim, fontSize: 14, marginBottom: 12 }}>
-          {uploading ? "Uploading…" : "Tap to upload PDF, TXT, or CSV"}
-          <input ref={fileRef} type="file" accept=".txt,.csv,.md,.pdf" onChange={handleFile} style={{ display: "none" }} />
+    <div style={{ minHeight: "100vh", background: C.bg, color: C.text, fontFamily: "Georgia, serif", display: "flex", flexDirection: "column" }}>
+      <div style={{ background: C.surface, borderBottom: `1px solid ${C.border}`, padding: "18px 24px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <img src="/logo.png" alt="Rose & Funk" style={{ height: 48, objectFit: "contain" }} />
+          <div style={{ fontSize: 11, color: C.dim, letterSpacing: 2 }}>STUDIO ASSISTANT</div>
         </div>
-        {documents.map(doc => (
-          <div key={doc.id} style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12, padding: "14px 16px", display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-            <div>
-              <div style={{ fontSize: 14, color: C.text }}>{doc.name}</div>
-              <div style={{ fontSize: 11, color: C.dim, marginTop: 3 }}>{doc.content.length.toLocaleString()} chars</div>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          {TABS.map(t => (
+            <button key={t} onClick={() => setTab(t)} style={{
+              background: tab === t ? C.gold : "transparent",
+              color: tab === t ? C.bg : C.muted,
+              border: `1px solid ${tab === t ? C.gold : C.border}`,
+              borderRadius: 4, padding: "6px 14px", cursor: "pointer",
+              fontSize: 12, letterSpacing: 1, fontFamily: "Georgia, serif"
+            }}>{t.toUpperCase()}</button>
+          ))}
+        </div>
+      </div>
+
+      <div style={{ flex: 1, display: "flex", overflow: "hidden" }}>
+        <div style={{ width: 220, background: C.surface, borderRight: `1px solid ${C.border}`, display: "flex", flexDirection: "column", overflowY: "auto", flexShrink: 0 }}>
+          <div style={{ padding: "16px 14px 8px", fontSize: 10, letterSpacing: 2, color: C.dim }}>RECENT SEARCHES</div>
+          {searches.length === 0 ? (
+            <div style={{ padding: "8px 14px", fontSize: 12, color: C.dim }}>Your recent questions will appear here</div>
+          ) : searches.map(s => (
+            <div key={s.id} style={{ display: "flex", alignItems: "flex-start", gap: 4, padding: "6px 10px", borderBottom: `1px solid ${C.faint}` }}>
+              <button onClick={() => reaskQuestion(s.question)} style={{ flex: 1, background: "transparent", border: "none", color: C.muted, fontSize: 12, textAlign: "left", cursor: "pointer", fontFamily: "Georgia, serif", lineHeight: 1.4, padding: "2px 0" }}>
+                {s.question.length > 60 ? s.question.slice(0, 60) + "…" : s.question}
+              </button>
+              <button onClick={() => deleteSearch(s.id)} style={{ background: "transparent", border: "none", color: C.dim, cursor: "pointer", fontSize: 14, padding: "0 2px", flexShrink: 0 }}>×</button>
             </div>
-            <button onClick={() => deleteDoc(doc.id)} style={{ background: "transparent", border: `1px solid ${C.border}`, borderRadius: 8, color: C.red, fontSize: 12, padding: "6px 12px", cursor: "pointer", fontFamily: "Georgia, serif" }}>Delete</button>
-          </div>
-        ))}
+          ))}
+        </div>
+
+        <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
+          {tab === "Chat" && (
+            <div style={{ flex: 1, display: "flex", flexDirection: "column", maxWidth: 800, width: "100%", margin: "0 auto", padding: "0 16px" }}>
+              <div style={{ flex: 1, overflowY: "auto", padding: "24px 0", display: "flex", flexDirection: "column", gap: 16 }}>
+                {messages.map((m, i) => (
+                  <div key={i} style={{ display: "flex", flexDirection: "column", alignItems: m.role === "user" ? "flex-end" : "flex-start" }}>
+                    {m.type === "clarifying" && m.clarifyData ? (
+                      <ClarifyingMessage data={m.clarifyData} onAnswer={handleClarifyAnswer} />
+                    ) : (
+                      <div style={{
+                        maxWidth: "75%", padding: "12px 16px", borderRadius: 8, lineHeight: 1.6, fontSize: 14,
+                        background: m.role === "user" ? C.gold : C.surface,
+                        color: m.role === "user" ? C.bg : C.text,
+                        border: m.role === "assistant" ? `1px solid ${C.border}` : "none"
+                      }}>
+                        {(m.content || "").split("\n").map((ln, j) => <div key={j}>{ln || <br />}</div>)}
+                      </div>
+                    )}
+                    {m.role === "assistant" && m.type === "answer" && i > 0 && (
+                      <button onClick={() => saveToKnowledge(m.content)} style={{
+                        marginTop: 4, background: "transparent", border: `1px solid ${C.border}`,
+                        borderRadius: 4, color: C.dim, fontSize: 10, padding: "3px 10px",
+                        cursor: "pointer", letterSpacing: 1, fontFamily: "Georgia, serif"
+                      }}>+ SAVE TO KNOWLEDGE BASE</button>
+                    )}
+                  </div>
+                ))}
+                {loading && (
+                  <div style={{ display: "flex", justifyContent: "flex-start" }}>
+                    <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 8, padding: "12px 16px", color: C.dim, fontSize: 13 }}>Thinking…</div>
+                  </div>
+                )}
+                {saveMsg && <div style={{ textAlign: "center", color: C.gold, fontSize: 12 }}>{saveMsg}</div>}
+                <div ref={bottomRef} />
+              </div>
+              <div style={{ padding: "16px 0 24px", display: "flex", gap: 10, alignItems: "flex-end" }}>
+                <textarea value={input} onChange={e => setInput(e.target.value)}
+                  onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } }}
+                  placeholder="Ask anything about Rose & Funk operations, clients, or procedures…"
+                  rows={3} style={{
+                    flex: 1, background: C.surface, border: `1px solid ${C.border}`, borderRadius: 8,
+                    color: C.text, padding: "12px 14px", fontSize: 14, resize: "none",
+                    outline: "none", fontFamily: "Georgia, serif", lineHeight: 1.5
+                  }} />
+                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                  <button onClick={send} disabled={loading || !input.trim()} style={{
+                    background: C.gold, color: C.bg, border: "none", borderRadius: 6,
+                    padding: "10px 18px", cursor: "pointer", fontSize: 13, fontFamily: "Georgia, serif",
+                    opacity: loading || !input.trim() ? 0.5 : 1
+                  }}>Send</button>
+                  <button onClick={() => setMessages([{ role: "assistant", type: "answer", content: "Hi! I'm your Rose & Funk business assistant. Ask me anything about your processes, client situations, or how to handle day-to-day operations — or browse the tabs for references and documents." }])} style={{
+                    background: "transparent", color: C.dim, border: `1px solid ${C.border}`,
+                    borderRadius: 6, padding: "8px 18px", cursor: "pointer", fontSize: 11, fontFamily: "Georgia, serif"
+                  }}>Clear</button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {tab === "Estimator" && <PinGate><Estimator /></PinGate>}
+          {tab === "Furnishings" && <PinGate><FurnishingsEstimator /></PinGate>}
+
+          {tab === "Knowledge Base" && (
+            <PinGate>
+              <KnowledgeBaseTab
+                knowledge={knowledge}
+                setKnowledge={setKnowledge}
+                kbStatus={kbStatus}
+                saveKnowledge={saveKnowledge}
+                documents={documents}
+                uploading={uploading}
+                fileRef={fileRef}
+                handleFileUpload={handleFileUpload}
+                deleteDoc={deleteDoc}
+              />
+            </PinGate>
+          )}
+
+          {tab === "Procedures" && (
+            <div style={{ flex: 1, maxWidth: 900, width: "100%", margin: "0 auto", padding: "24px 16px", overflowY: "auto" }}>
+              {PROCEDURES.map((cat, ci) => (
+                <div key={ci} style={{ marginBottom: 32 }}>
+                  <div style={{ fontSize: 11, letterSpacing: 3, color: C.gold, marginBottom: 14 }}>{cat.category.toUpperCase()}</div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                    {cat.items.map((proc, pi) => {
+                      const key = `${ci}-${pi}`;
+                      const open = expandedProc === key;
+                      return (
+                        <div key={pi} style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 8, overflow: "hidden" }}>
+                          <div onClick={() => setExpandedProc(open ? null : key)} style={{ padding: "14px 18px", cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                            <div>
+                              <div style={{ fontSize: 14, color: C.text }}>{proc.title}</div>
+                              <div style={{ fontSize: 11, color: ownerColor(proc.owner), marginTop: 3, letterSpacing: 1 }}>{proc.owner}</div>
+                            </div>
+                            <div style={{ color: C.dim, fontSize: 18 }}>{open ? "−" : "+"}</div>
+                          </div>
+                          {open && (
+                            <div style={{ borderTop: `1px solid ${C.border}`, padding: "14px 18px", display: "flex", flexDirection: "column", gap: 10 }}>
+                              {proc.steps.map((step, si) => (
+                                <div key={si} style={{ display: "flex", gap: 14, alignItems: "flex-start" }}>
+                                  <div style={{ width: 22, height: 22, borderRadius: "50%", background: C.faint, color: C.dim, fontSize: 11, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginTop: 1 }}>{si + 1}</div>
+                                  <div style={{ flex: 1 }}>
+                                    <div style={{ fontSize: 13, color: C.text, lineHeight: 1.5 }}>{step.text}</div>
+                                    <div style={{ fontSize: 10, color: ownerColor(step.owner), marginTop: 3, letterSpacing: 1 }}>{step.owner}</div>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
-    </div>
-  );
-};
-
-// ── NAV ICONS ─────────────────────────────────────────────────────────────────
-const Icon = ({ name, active }) => {
-  const col = active ? C.gold : C.dim;
-  const icons = {
-    chat: <svg width="24" height="24" fill="none" stroke={col} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>,
-    estimate: <svg width="24" height="24" fill="none" stroke={col} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M8 12h8M8 8h5M8 16h3"/></svg>,
-    furnishings: <svg width="24" height="24" fill="none" stroke={col} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9,22 9,12 15,12 15,22"/></svg>,
-    procedures: <svg width="24" height="24" fill="none" stroke={col} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>,
-    knowledge: <svg width="24" height="24" fill="none" stroke={col} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>,
-  };
-  return icons[name] || null;
-};
-
-// ── MAIN APP ──────────────────────────────────────────────────────────────────
-export default function App() {
-  const [tab, setTab] = useState("chat");
-  const [knowledge, setKnowledge] = useState("");
-
-  useEffect(() => {
-    api({ action: "load_knowledge" }).then(d => { if (d.content) setKnowledge(d.content); });
-  }, []);
-
-  const NAV = [
-    { id: "chat", label: "Chat", icon: "chat" },
-    { id: "estimator", label: "Estimate", icon: "estimate", pin: true },
-    { id: "furnishings", label: "Furnish", icon: "furnishings", pin: true },
-    { id: "procedures", label: "Process", icon: "procedures" },
-    { id: "knowledge", label: "Knowledge", icon: "knowledge", pin: true },
-  ];
-
-  const renderTab = () => {
-    if (tab === "chat") return <ChatTab knowledge={knowledge} />;
-    if (tab === "estimator") return <PinGate label="Enter PIN to access Estimator"><EstimatorTab /></PinGate>;
-    if (tab === "furnishings") return <PinGate label="Enter PIN to access Furnishings"><FurnishingsTab /></PinGate>;
-    if (tab === "procedures") return <ProceduresTab />;
-    if (tab === "knowledge") return <PinGate label="Enter PIN to access Knowledge Base"><KnowledgeTab knowledge={knowledge} setKnowledge={setKnowledge} /></PinGate>;
-  };
-
-  return (
-    <div style={{ height: "100dvh", background: C.bg, color: C.text, fontFamily: "Georgia, serif", display: "flex", flexDirection: "column", overflow: "hidden" }}>
-      {/* Header */}
-      <div style={{ background: C.surface, borderBottom: `1px solid ${C.border}`, padding: "14px 20px", display: "flex", alignItems: "center", gap: 12, flexShrink: 0 }}>
-        <img src="/logo.png" alt="Rose & Funk" style={{ height: 36, objectFit: "contain" }} onError={e => e.target.style.display = "none"} />
-        <div style={{ fontSize: 10, color: C.dim, letterSpacing: 3, textTransform: "uppercase" }}>Studio Assistant</div>
-      </div>
-
-      {/* Content */}
-      <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
-        {renderTab()}
-      </div>
-
-      {/* Bottom Nav */}
-      <div style={{
-        background: C.surface, borderTop: `1px solid ${C.border}`,
-        display: "flex", flexShrink: 0,
-        paddingBottom: "env(safe-area-inset-bottom)"
-      }}>
-        {NAV.map(n => (
-          <button key={n.id} onClick={() => setTab(n.id)} style={{
-            flex: 1, padding: "10px 4px 12px", background: "transparent", border: "none",
-            cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: 4,
-            WebkitTapHighlightColor: "transparent"
-          }}>
-            <Icon name={n.icon} active={tab === n.id} />
-            <span style={{ fontSize: 10, color: tab === n.id ? C.gold : C.dim, letterSpacing: 0.5, lineHeight: 1 }}>{n.label}</span>
-          </button>
-        ))}
-      </div>
-
-      <style>{`
-        * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
-        body { background: #0f0e0c; overscroll-behavior: none; }
-        ::-webkit-scrollbar { display: none; }
-        textarea, input, select, button { font-family: Georgia, serif; }
-        textarea::placeholder, input::placeholder { color: #3a3028; }
-        @keyframes shake { 0%,100%{transform:translateX(0)} 20%{transform:translateX(-8px)} 40%{transform:translateX(8px)} 60%{transform:translateX(-6px)} 80%{transform:translateX(6px)} }
-      `}</style>
     </div>
   );
 }
