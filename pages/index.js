@@ -7,7 +7,7 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 const ALLOWED_DOMAIN = "roseandfunk.com";
 
 
-const TABS = ["Chat", "Estimator", "Furnishings", "Knowledge Base", "Procedures", "Contacts"];
+const TABS = ["Chat", "Estimator", "Furnishings", "Knowledge Base", "Procedures", "Contacts", "Schedule"];
 
 const C = { // Rose & Funk light theme
   bg: "#EAE5DD", surface: "#F5F2ED", border: "#D4CFCA",
@@ -1108,6 +1108,396 @@ const FurnishingsEstimator = () => {
 
 const CONTACT_TYPES = ["Client", "Builder", "Trade", "Rep"];
 
+// ── Scheduling Engine ────────────────────────────────────────────────────────
+
+const fmtDate = (d) => d.toLocaleDateString("en-CA", { weekday: "short", month: "short", day: "numeric", year: "numeric" });
+const fmtTime = (d) => d.toLocaleTimeString("en-CA", { hour: "numeric", minute: "2-digit", hour12: true });
+
+// Add business days (Tue–Fri only, no Mondays)
+const addWorkDays = (date, days) => {
+  let d = new Date(date);
+  let added = 0;
+  while (added < days) {
+    d.setDate(d.getDate() + 1);
+    if (d.getDay() !== 0 && d.getDay() !== 1) added++; // skip Sun(0) and Mon(1)
+  }
+  return d;
+};
+
+// Get next valid meeting day (Tue–Fri) on or after date
+const nextMeetingDay = (date, preferFriday = false) => {
+  let d = new Date(date);
+  // If preferFriday, look for next Friday within 5 days, else just next Tue-Fri
+  if (preferFriday) {
+    for (let i = 0; i < 7; i++) {
+      if (d.getDay() === 5) return d;
+      d.setDate(d.getDate() + 1);
+    }
+    d = new Date(date);
+  }
+  while (d.getDay() === 0 || d.getDay() === 1) d.setDate(d.getDate() + 1);
+  return d;
+};
+
+// Generate 3 meeting date options (spaced 1–2 days apart, all Tue–Fri)
+const getMeetingOptions = (baseDate, count = 3) => {
+  const options = [];
+  let d = nextMeetingDay(new Date(baseDate));
+  for (let i = 0; i < count; i++) {
+    options.push(new Date(d));
+    // Next option: 1–2 days later, still Tue–Fri
+    d = new Date(d);
+    d.setDate(d.getDate() + (d.getDay() === 4 ? 4 : d.getDay() === 5 ? 4 : 2)); // skip Mon
+    while (d.getDay() === 0 || d.getDay() === 1) d.setDate(d.getDate() + 1);
+  }
+  return options;
+};
+
+// Build time string for event
+const withTime = (date, hour, min = 0) => {
+  const d = new Date(date);
+  d.setHours(hour, min, 0, 0);
+  return d;
+};
+
+// Generate full ID Construction schedule
+const buildIDSchedule = (clientName, contractDate) => {
+  const start = new Date(contractDate);
+  const events = [];
+  let cursor = new Date(start);
+
+  // PRE-DESIGN
+  cursor = addWorkDays(start, 1);
+  events.push({ phase: "Pre-Design", type: "block", label: `RF ${clientName} | Initial Drawing Set-up`, start: withTime(cursor, 9), end: withTime(cursor, 17), days: 3, notes: "Designer — 3 days drawing set-up" });
+
+  // PHASE 1 — Initial Meeting options
+  cursor = addWorkDays(cursor, 3);
+  const initialMtgOptions = getMeetingOptions(cursor);
+  events.push({ phase: "Phase 1", type: "meeting", label: `RF ${clientName} | Initial Meeting 1.1`, durationHrs: 1.5, options: initialMtgOptions, selectedOption: 0, notes: "Gregory + Designer + Client · 1.5 hrs · Zoom or in-person" });
+
+  // After initial meeting: Aesthetic Direction work (2 days)
+  events.push({ phase: "Phase 1", type: "block", label: `RF ${clientName} | Aesthetic Direction`, days: 2, offsetFromPrev: 1, notes: "Gregory OFF 9am–4pm · Designer invited · No client meetings" });
+
+  // Aesthetic Direction Meeting options
+  events.push({ phase: "Phase 1", type: "meeting", label: `RF ${clientName} | Aesthetic Direction Meeting`, durationHrs: 1.5, offsetFromPrevBlock: 1, options: [], selectedOption: 0, notes: "Gregory + Designer + Client · 1.5 hrs" });
+
+  // Appliance & Plumbing Meeting (same week or next)
+  events.push({ phase: "Phase 1", type: "meeting", label: `RF ${clientName} | Appliance + Plumbing Meeting`, durationHrs: 4, offsetFromPrev: 2, options: [], selectedOption: 0, notes: "Gregory + Designer + Client · 4 hrs" });
+
+  // PHASE 2
+  events.push({ phase: "Phase 2", type: "block", label: `RF ${clientName} | Team Material Concept`, days: 2, offsetFromPrev: 2, notes: "Gregory OFF 9am–4pm · Designer invited · No client meetings" });
+  events.push({ phase: "Phase 2", type: "block", label: `RF ${clientName} | Complete Material Boards`, days: 2, offsetFromPrev: 1, notes: "Designer" });
+  events.push({ phase: "Phase 2", type: "block", label: `RF ${clientName} | Lighting Concept Boards`, days: 2, offsetFromPrev: 1, notes: "Designer" });
+  events.push({ phase: "Phase 2", type: "block", label: `RF ${clientName} | Sketch Elevations`, days: 1, offsetFromPrev: 1, notes: "Gregory OFF 9am–4pm · Designer invited · No client meetings" });
+  events.push({ phase: "Phase 2", type: "block", label: `RF ${clientName} | Elevations in AutoCAD`, days: 2, offsetFromPrev: 1, notes: "Designer" });
+
+  // Concept Elevation + Material Meeting
+  events.push({ phase: "Phase 2", type: "meeting", label: `RF ${clientName} | Concept Elevation + Material Meeting`, durationHrs: 4, offsetFromPrevBlock: 1, options: [], selectedOption: 0, notes: "Gregory + Designer + Client · 4 hrs · Prefer Friday at 11am or 1pm" });
+
+  // PHASE 3
+  events.push({ phase: "Phase 3", type: "block", label: `RF ${clientName} | Concept Revisions + Material Boards`, days: 2, offsetFromPrev: 2, notes: "1 day Gregory OFF 9am–4pm · Designer invited" });
+  events.push({ phase: "Phase 3", type: "block", label: `RF ${clientName} | Documentation`, days: 3, offsetFromPrev: 1, notes: "Designer" });
+  events.push({ phase: "Phase 3", type: "block", label: `RF ${clientName} | Concept Exterior`, days: 1, offsetFromPrev: 1, notes: "2 hrs Gregory" });
+
+  // Material Confirmation Meeting
+  events.push({ phase: "Phase 3", type: "meeting", label: `RF ${clientName} | Material Confirmation Meeting`, durationHrs: 3, offsetFromPrevBlock: 1, options: [], selectedOption: 0, notes: "Gregory + Designer + Client · 3 hrs · Prefer Friday at 11am or 1pm" });
+
+  // PHASE 4
+  events.push({ phase: "Phase 4", type: "block", label: `RF ${clientName} | 3D Rendering (external)`, days: 15, offsetFromPrev: 2, notes: "2–3 weeks for rendering · Client review period" });
+  events.push({ phase: "Phase 4", type: "block", label: `RF ${clientName} | Material Confirmation Revisions`, days: 1, offsetFromPrev: 1, notes: "Designer" });
+  events.push({ phase: "Phase 4", type: "block", label: `RF ${clientName} | Complete Remaining Elevations`, days: 3, offsetFromPrev: 4, notes: "3 client review days before this · Designer" });
+  events.push({ phase: "Phase 4", type: "block", label: `RF ${clientName} | Drawing Details`, days: 1, offsetFromPrev: 1, notes: "Designer" });
+  events.push({ phase: "Phase 4", type: "block", label: `RF ${clientName} | Dimension + Noting Elevations`, days: 2, offsetFromPrev: 1, notes: "Designer" });
+  events.push({ phase: "Phase 4", type: "block", label: `RF ${clientName} | Plan Layouts`, days: 5, offsetFromPrev: 1, notes: "Designer" });
+
+  // Final Review Meeting
+  events.push({ phase: "Phase 4", type: "meeting", label: `RF ${clientName} | Final Review Meeting`, durationHrs: 3, offsetFromPrevBlock: 1, options: [], selectedOption: 0, notes: "Gregory + Designer + Client · 3 hrs · Prefer Friday at 11am or 1pm" });
+
+  // POST FINAL
+  events.push({ phase: "Post Final", type: "block", label: `RF ${clientName} | Client Adjustments + Send for Sign-off`, days: 1, offsetFromPrev: 3, notes: "Designer" });
+  events.push({ phase: "Post Final", type: "block", label: `RF ${clientName} | Final Adjustments + Send to Print`, days: 2, offsetFromPrev: 4, notes: "3 client review days · Designer" });
+  events.push({ phase: "Post Final", type: "block", label: `RF ${clientName} | Review Drawings + Gather`, days: 1, offsetFromPrev: 1, notes: "Gregory OFF 9am–4pm · Designer invited" });
+  events.push({ phase: "Post Final", type: "block", label: `RF ${clientName} | All Final Edits + Send to Client`, days: 3, offsetFromPrev: 1, notes: "Designer" });
+
+  return events;
+};
+
+// Generate full Furnishings schedule
+const buildFurnishingsSchedule = (clientName, contractDate) => {
+  const start = new Date(contractDate);
+  const events = [];
+  let cursor = new Date(start);
+
+  // PRE-DESIGN
+  cursor = addWorkDays(start, 1);
+  events.push({ phase: "Pre-Design", type: "block", label: `RF ${clientName} | Drawing File Set-up`, days: 1, notes: "Admin + Designer · Set up drawing file, sheets, AutoCAD layout, book all meeting dates" });
+
+  // PHASE 1 — Initial Meeting
+  cursor = addWorkDays(cursor, 2);
+  const initialMtgOptions = getMeetingOptions(cursor);
+  events.push({ phase: "Phase 1 | Concept", type: "meeting", label: `RF ${clientName} | Initial Meeting`, durationHrs: 1.5, options: initialMtgOptions, selectedOption: 0, notes: "Gregory + Designer + Client · 1.5 hrs · Review scope, budget, inspiration" });
+
+  // Sourcing — 2 days Gregory off
+  events.push({ phase: "Phase 1 | Concept", type: "block", label: `RF ${clientName} | Sourcing`, days: 2, offsetFromPrev: 1, notes: "Gregory OFF both days 9am–4pm · Designer" });
+
+  // Furniture Mood Boards — 3 days girls, 1 day Gregory
+  events.push({ phase: "Phase 1 | Concept", type: "block", label: `RF ${clientName} | Furniture Mood Boards`, days: 3, offsetFromPrev: 1, notes: "Designer 3 days · 1 day Gregory review" });
+
+  // Furniture Pricing
+  events.push({ phase: "Phase 1 | Concept", type: "block", label: `RF ${clientName} | Furniture Pricing`, days: 1, offsetFromPrev: 1, notes: "Designer · Note all requested revisions" });
+
+  // Furniture Meeting
+  events.push({ phase: "Phase 1 | Concept", type: "meeting", label: `RF ${clientName} | Furniture Meeting`, durationHrs: 2, offsetFromPrevBlock: 1, options: [], selectedOption: 0, notes: "Gregory + Designer + Client · 2 hrs · Present furniture boards + pricing" });
+
+  // Furniture Meeting Revisions
+  events.push({ phase: "Phase 1 | Concept", type: "block", label: `RF ${clientName} | Furniture Meeting Revisions`, days: 1, offsetFromPrev: 1, notes: "Designer" });
+
+  // PHASE 2
+  events.push({ phase: "Phase 2 | Finalize", type: "block", label: `RF ${clientName} | Enter Selections into Gather`, days: 1, offsetFromPrev: 1, notes: "Designer" });
+  events.push({ phase: "Phase 2 | Finalize", type: "block", label: `RF ${clientName} | Order Samples`, days: 1, offsetFromPrev: 1, notes: "Designer" });
+
+  // Furniture & Fabric Confirmation Meeting — on site
+  events.push({ phase: "Phase 2 | Finalize", type: "meeting", label: `RF ${clientName} | Furniture + Fabric Confirmation Meeting`, durationHrs: 1.5, offsetFromPrevBlock: 2, options: [], selectedOption: 0, notes: "Gregory + Designer + Client · 1.5 hrs · ON SITE · Include drapery measurement if applicable" });
+
+  events.push({ phase: "Phase 2 | Finalize", type: "block", label: `RF ${clientName} | Confirmation Meeting Revisions`, days: 1, offsetFromPrev: 1, notes: "Designer" });
+
+  // PHASE 3 — Accessories
+  events.push({ phase: "Phase 3 | Accessories", type: "block", label: `RF ${clientName} | Art Sourcing`, days: 1, offsetFromPrev: 2, notes: "Gregory OFF 9am–4pm · Designer" });
+  events.push({ phase: "Phase 3 | Accessories", type: "block", label: `RF ${clientName} | Accessory + Art Concept Boards`, days: 1, offsetFromPrev: 1, notes: "Designer" });
+
+  // Accessory & Art Concept Meeting
+  events.push({ phase: "Phase 3 | Accessories", type: "meeting", label: `RF ${clientName} | Accessory + Art Concept Meeting`, durationHrs: 1.5, offsetFromPrevBlock: 1, options: [], selectedOption: 0, notes: "Gregory + Designer + Client · 1.5 hrs · 3 business day client review after" });
+
+  events.push({ phase: "Phase 3 | Accessories", type: "block", label: `RF ${clientName} | Accessory Board Revisions`, days: 1, offsetFromPrev: 4, notes: "Designer · After 3 business day client review" });
+
+  // PHASE 4 — Installation
+  events.push({ phase: "Phase 4 | Installation", type: "meeting", label: `RF ${clientName} | Furniture Set-Up Day`, durationHrs: 7, offsetFromPrevBlock: 14, options: [], selectedOption: 0, notes: "Gregory + Designer · Full day on site · After all orders placed + delivered" });
+  events.push({ phase: "Phase 4 | Installation", type: "meeting", label: `RF ${clientName} | Accessory Install Day`, durationHrs: 7, offsetFromPrev: 2, options: [], selectedOption: 0, notes: "Gregory + Designer · Full day on site" });
+  events.push({ phase: "Phase 4 | Installation", type: "meeting", label: `RF ${clientName} | Photoshoot Day`, durationHrs: 6, offsetFromPrev: 3, options: [], selectedOption: 0, notes: "Gregory + Designer + Photographer" });
+
+  return events;
+};
+
+// Compute actual dates for all events based on selections
+const computeDates = (events) => {
+  let cursor = null;
+  return events.map((ev, i) => {
+    if (ev.type === "meeting") {
+      if (ev.options && ev.options.length > 0) {
+        // Has options — use selected
+        cursor = new Date(ev.options[ev.selectedOption]);
+      } else {
+        // Auto-place: offset from cursor
+        const off = ev.offsetFromPrev || ev.offsetFromPrevBlock || 2;
+        cursor = addWorkDays(cursor || new Date(), off);
+        cursor = nextMeetingDay(cursor);
+      }
+      const hour = ev.durationHrs >= 3 ? 11 : 10;
+      return { ...ev, date: new Date(cursor), startTime: withTime(cursor, hour), endTime: withTime(cursor, hour + Math.ceil(ev.durationHrs)) };
+    } else {
+      // Block event
+      const off = ev.offsetFromPrev || ev.offsetFromPrevBlock || 1;
+      if (cursor) cursor = addWorkDays(cursor, off);
+      else cursor = new Date();
+      while (cursor.getDay() === 0 || cursor.getDay() === 1) cursor.setDate(cursor.getDate() + 1);
+      const blockStart = new Date(cursor);
+      // Advance cursor by days-1 more work days
+      if (ev.days > 1) cursor = addWorkDays(cursor, ev.days - 1);
+      return { ...ev, date: blockStart, startTime: withTime(blockStart, 9), endTime: withTime(blockStart, 17) };
+    }
+  });
+};
+
+const PHASE_COLORS = {
+  "Pre-Design": "#9A8880",
+  "Phase 1": "#7a9e8e",
+  "Phase 1 | Concept": "#7a9e8e",
+  "Phase 2": "#8a9cb5",
+  "Phase 2 | Finalize": "#8a9cb5",
+  "Phase 3": "#a0896a",
+  "Phase 3 | Accessories": "#a0896a",
+  "Phase 4": "#9a7aaa",
+  "Phase 4 | Installation": "#9a7aaa",
+  "Post Final": "#A98D70",
+};
+
+const ScheduleTab = () => {
+  const [projectType, setProjectType] = useState("id");
+  const [clientName, setClientName] = useState("");
+  const [contractDate, setContractDate] = useState("");
+  const [events, setEvents] = useState([]);
+  const [computed, setComputed] = useState([]);
+  const [step, setStep] = useState("setup"); // setup | review | approved
+  const [copied, setCopied] = useState(false);
+
+  const generate = () => {
+    if (!clientName.trim() || !contractDate) return;
+    const raw = projectType === "id"
+      ? buildIDSchedule(clientName.trim(), contractDate)
+      : buildFurnishingsSchedule(clientName.trim(), contractDate);
+    setEvents(raw);
+    setComputed(computeDates(raw));
+    setStep("review");
+  };
+
+  const selectOption = (idx, optionIdx) => {
+    const updated = events.map((ev, i) => i === idx ? { ...ev, selectedOption: optionIdx } : ev);
+    setEvents(updated);
+    setComputed(computeDates(updated));
+  };
+
+  const approve = () => setStep("approved");
+
+  const reset = () => { setStep("setup"); setClientName(""); setContractDate(""); setEvents([]); setComputed([]); };
+
+  const copyAll = () => {
+    const text = computed.map(ev => {
+      const dateStr = fmtDate(ev.date);
+      const timeStr = `${fmtTime(ev.startTime)} – ${fmtTime(ev.endTime)}`;
+      return `${ev.phase.toUpperCase()} | ${ev.label}\n${dateStr} · ${ev.type === "block" && ev.days > 1 ? `${ev.days} days starting` : ""} ${timeStr}\n${ev.notes || ""}\n`;
+    }).join("\n");
+    navigator.clipboard.writeText(text);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2500);
+  };
+
+  const inputStyle = { background: C.bg, border: `1px solid ${C.border}`, borderRadius: 6, color: C.text, padding: "10px 14px", fontSize: 14, outline: "none", fontFamily: "'Archivo', sans-serif" };
+
+  const phases = computed.length > 0 ? [...new Set(computed.map(e => e.phase))] : [];
+
+  return (
+    <div style={{ flex: 1, maxWidth: 960, width: "100%", margin: "0 auto", padding: "24px 16px", overflowY: "auto" }}>
+
+      {step === "setup" && (
+        <div style={{ maxWidth: 500 }}>
+          <div style={{ fontSize: 11, letterSpacing: 2, color: C.dim, marginBottom: 20 }}>NEW PROJECT SCHEDULE</div>
+
+          <div style={{ marginBottom: 14 }}>
+            <div style={{ fontSize: 11, color: C.dim, marginBottom: 6, letterSpacing: 1 }}>PROJECT TYPE</div>
+            <div style={{ display: "flex", gap: 8 }}>
+              {[["id", "ID Construction"], ["furnishings", "Furnishings"]].map(([val, label]) => (
+                <button key={val} onClick={() => setProjectType(val)} style={{
+                  flex: 1, padding: "10px", borderRadius: 6, cursor: "pointer",
+                  fontFamily: "'Playfair Display', serif", fontSize: 13, letterSpacing: 1,
+                  background: projectType === val ? C.gold : C.surface,
+                  color: projectType === val ? C.bg : C.muted,
+                  border: `1px solid ${projectType === val ? C.gold : C.border}`
+                }}>{label.toUpperCase()}</button>
+              ))}
+            </div>
+          </div>
+
+          <div style={{ marginBottom: 14 }}>
+            <div style={{ fontSize: 11, color: C.dim, marginBottom: 6, letterSpacing: 1 }}>CLIENT NAME</div>
+            <input value={clientName} onChange={e => setClientName(e.target.value)} placeholder="e.g. Smith Family" style={{ ...inputStyle, width: "100%", boxSizing: "border-box" }} />
+          </div>
+
+          <div style={{ marginBottom: 24 }}>
+            <div style={{ fontSize: 11, color: C.dim, marginBottom: 6, letterSpacing: 1 }}>CONTRACT SIGNED DATE</div>
+            <input type="date" value={contractDate} onChange={e => setContractDate(e.target.value)} style={{ ...inputStyle, width: "100%", boxSizing: "border-box" }} />
+          </div>
+
+          <button onClick={generate} disabled={!clientName.trim() || !contractDate} style={{
+            background: C.gold, color: C.bg, border: "none", borderRadius: 6,
+            padding: "12px 28px", cursor: "pointer", fontSize: 13,
+            fontFamily: "'Playfair Display', serif", letterSpacing: 1,
+            opacity: !clientName.trim() || !contractDate ? 0.5 : 1, width: "100%"
+          }}>GENERATE SCHEDULE →</button>
+        </div>
+      )}
+
+      {(step === "review" || step === "approved") && (
+        <>
+          {/* Header */}
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 24, flexWrap: "wrap", gap: 12 }}>
+            <div>
+              <div style={{ fontSize: 18, color: C.text, fontFamily: "'Playfair Display', serif" }}>{clientName}</div>
+              <div style={{ fontSize: 12, color: C.dim, marginTop: 3 }}>{projectType === "id" ? "ID Construction" : "Furnishings"} · Contract: {new Date(contractDate).toLocaleDateString("en-CA", { month: "long", day: "numeric", year: "numeric" })}</div>
+            </div>
+            <div style={{ display: "flex", gap: 8 }}>
+              {step === "review" && (
+                <button onClick={approve} style={{ background: C.gold, color: C.bg, border: "none", borderRadius: 6, padding: "9px 20px", cursor: "pointer", fontSize: 12, fontFamily: "'Playfair Display', serif", letterSpacing: 1 }}>
+                  ✓ APPROVE SCHEDULE
+                </button>
+              )}
+              {step === "approved" && (
+                <button onClick={copyAll} style={{ background: C.gold, color: C.bg, border: "none", borderRadius: 6, padding: "9px 20px", cursor: "pointer", fontSize: 12, fontFamily: "'Playfair Display', serif", letterSpacing: 1 }}>
+                  {copied ? "✓ COPIED!" : "COPY ALL EVENTS"}
+                </button>
+              )}
+              <button onClick={reset} style={{ background: "transparent", border: `1px solid ${C.border}`, borderRadius: 6, color: C.dim, padding: "9px 16px", cursor: "pointer", fontSize: 12, fontFamily: "'Archivo', sans-serif" }}>New Schedule</button>
+            </div>
+          </div>
+
+          {step === "approved" && (
+            <div style={{ background: "#7a9e8e22", border: "1px solid #7a9e8e", borderRadius: 8, padding: "14px 18px", marginBottom: 20, fontSize: 13, color: "#7a9e8e" }}>
+              ✓ Schedule approved! Copy all events above and paste into Google Calendar, or add them one by one below.
+            </div>
+          )}
+
+          {/* Schedule by phase */}
+          {phases.map(phase => (
+            <div key={phase} style={{ marginBottom: 28 }}>
+              <div style={{ fontSize: 10, letterSpacing: 3, color: PHASE_COLORS[phase] || C.gold, marginBottom: 10 }}>{phase.toUpperCase()}</div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                {computed.filter(e => e.phase === phase).map((ev, evIdx) => {
+                  const globalIdx = computed.indexOf(ev);
+                  const phaseColor = PHASE_COLORS[phase] || C.gold;
+                  return (
+                    <div key={evIdx} style={{ background: C.surface, border: `1px solid ${ev.type === "meeting" ? phaseColor : C.border}`, borderRadius: 8, overflow: "hidden" }}>
+                      <div style={{ display: "flex", gap: 0 }}>
+                        <div style={{ width: 4, background: ev.type === "meeting" ? phaseColor : C.faint, flexShrink: 0 }} />
+                        <div style={{ flex: 1, padding: "12px 16px" }}>
+                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 8 }}>
+                            <div>
+                              <div style={{ fontSize: 13, color: C.text, fontWeight: 500 }}>{ev.label}</div>
+                              <div style={{ fontSize: 11, color: C.dim, marginTop: 3 }}>{ev.notes}</div>
+                            </div>
+                            <div style={{ textAlign: "right", flexShrink: 0 }}>
+                              <div style={{ fontSize: 13, color: ev.type === "meeting" ? phaseColor : C.muted, fontWeight: 500 }}>{fmtDate(ev.date)}</div>
+                              <div style={{ fontSize: 11, color: C.dim, marginTop: 2 }}>
+                                {ev.type === "block" && ev.days > 1 ? `${ev.days} days · ` : ""}{fmtTime(ev.startTime)} – {fmtTime(ev.endTime)}
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Meeting options picker — only in review mode */}
+                          {step === "review" && ev.type === "meeting" && ev.options && ev.options.length > 0 && (
+                            <div style={{ marginTop: 10, display: "flex", gap: 6, flexWrap: "wrap" }}>
+                              <div style={{ fontSize: 10, color: C.dim, width: "100%", letterSpacing: 1, marginBottom: 4 }}>CHOOSE DATE:</div>
+                              {ev.options.map((opt, oi) => (
+                                <button key={oi} onClick={() => selectOption(globalIdx, oi)} style={{
+                                  background: ev.selectedOption === oi ? phaseColor : C.faint,
+                                  color: ev.selectedOption === oi ? "#fff" : C.muted,
+                                  border: `1px solid ${ev.selectedOption === oi ? phaseColor : C.border}`,
+                                  borderRadius: 6, padding: "5px 12px", cursor: "pointer",
+                                  fontSize: 11, fontFamily: "'Archivo', sans-serif"
+                                }}>{fmtDate(opt)}</button>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+
+          {step === "review" && (
+            <div style={{ marginTop: 8, paddingTop: 20, borderTop: `1px solid ${C.border}`, display: "flex", justifyContent: "center" }}>
+              <button onClick={approve} style={{ background: C.gold, color: C.bg, border: "none", borderRadius: 6, padding: "13px 40px", cursor: "pointer", fontSize: 13, fontFamily: "'Playfair Display', serif", letterSpacing: 1 }}>
+                ✓ APPROVE SCHEDULE
+              </button>
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
+};
+
 const ContactsTab = () => {
   const [contacts, setContacts] = useState([]);
   const [search, setSearch] = useState("");
@@ -1561,6 +1951,7 @@ function App({ user, onSignOut }) {
       )}
 
       {tab === "Contacts" && <ContactsTab />}
+      {tab === "Schedule" && <ScheduleTab />}
     </>
   );
 
