@@ -516,8 +516,6 @@ const getSessionId = () => {
   return id;
 };
 
-const fmt = (n) => n.toLocaleString("en-CA", { style: "currency", currency: "CAD", maximumFractionDigits: 0 });
-
 // ── PIN GATE ─────────────────────────────────────────────────────────────────
 const PinGate = ({ children, label = "Enter PIN to Access" }) => {
   const [unlocked, setUnlocked] = useState(false);
