@@ -1325,40 +1325,72 @@ const ScheduleTab = () => {
   const [projectType, setProjectType] = useState("id");
   const [clientName, setClientName] = useState("");
   const [contractDate, setContractDate] = useState("");
+  const [designer, setDesigner] = useState("Chloe");
+  const [comparison, setComparison] = useState(null);
   const [events, setEvents] = useState([]);
-  const [step, setStep] = useState("setup"); // setup | loading | review | finalizing | approved
+  const [step, setStep] = useState("setup"); // setup | loading | compare | review | finalizing | approved
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState("");
   const [conflicts, setConflicts] = useState([]);
+
+  const parseSchedule = (data) => (data.schedule || []).map(ev => ({
+    ...ev,
+    date: ev.date ? new Date(ev.date) : null,
+    startTime: ev.date && ev.startTime ? new Date(`${ev.date}T${ev.startTime}`) : null,
+    endTime: ev.date && ev.endTime ? new Date(`${ev.date}T${ev.endTime}`) : null,
+    options: (ev.options || []).map(o => new Date(o)),
+    selectedOption: ev.selectedOption || 0,
+  }));
+
+  const getLastDate = (schedule) => {
+    if (!schedule || schedule.length === 0) return new Date(0);
+    return schedule.filter(e => e.date).reduce((latest, e) => {
+      let end = new Date(e.date);
+      if (e.days > 1) { let added = 0; while (added < e.days - 1) { end.setDate(end.getDate() + 1); if (end.getDay() !== 0 && end.getDay() !== 1) added++; } }
+      return end > latest ? end : latest;
+    }, new Date(0));
+  };
+
+  const fetchSchedule = (d) => fetch("/api/schedule", {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ action: "generate_schedule", clientName: clientName.trim(), projectType, contractDate, designer: d })
+  }).then(r => r.json());
 
   const generate = async () => {
     if (!clientName.trim() || !contractDate) return;
     setStep("loading");
     setError("");
     try {
-      const res = await fetch("/api/schedule", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "generate_schedule", clientName: clientName.trim(), projectType, contractDate })
-      });
-      const data = await res.json();
-      if (data.error) throw new Error(data.error);
-      // Parse dates from strings
-      const parsed = (data.schedule || []).map(ev => ({
-        ...ev,
-        date: ev.date ? new Date(ev.date) : null,
-        startTime: ev.date && ev.startTime ? new Date(`${ev.date}T${ev.startTime}`) : null,
-        endTime: ev.date && ev.endTime ? new Date(`${ev.date}T${ev.endTime}`) : null,
-        options: (ev.options || []).map(o => new Date(o)),
-        selectedOption: ev.selectedOption || 0,
-      }));
-      setEvents(parsed);
-      setConflicts(data.conflicts || []);
-      setStep("review");
+      if (projectType === "id") {
+        const [chloeData, stephanieData] = await Promise.all([fetchSchedule("Chloe"), fetchSchedule("Stephanie")]);
+        if (chloeData.error) throw new Error(chloeData.error);
+        if (stephanieData.error) throw new Error(stephanieData.error);
+        setComparison({
+          Chloe: { ...chloeData, parsed: parseSchedule(chloeData) },
+          Stephanie: { ...stephanieData, parsed: parseSchedule(stephanieData) },
+        });
+        setStep("compare");
+      } else {
+        const data = await fetchSchedule("Lillian");
+        if (data.error) throw new Error(data.error);
+        setEvents(parseSchedule(data));
+        setDesigner("Lillian");
+        setConflicts(data.conflicts || []);
+        setStep("review");
+      }
     } catch (err) {
-      setError(`Error: ${err.message || "Failed to generate schedule. Please try again."}`);
+      setError(`Error: ${err.message}`);
       setStep("setup");
     }
+  };
+
+  const selectDesigner = (d) => {
+    const data = comparison[d];
+    setEvents(data.parsed);
+    setDesigner(d);
+    setConflicts(data.conflicts || []);
+    setComparison(null);
+    setStep("review");
   };
 
   const selectOption = (idx, optionIdx) => {
@@ -1369,19 +1401,17 @@ const ScheduleTab = () => {
     setStep("finalizing");
     try {
       const res = await fetch("/api/schedule", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
+        method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: "finalize_schedule", clientName: clientName.trim(), projectType, contractDate, events })
       });
       const data = await res.json();
       if (data.error) throw new Error(data.error);
-      const parsed = (data.schedule || []).map(ev => ({
+      setEvents((data.schedule || []).map(ev => ({
         ...ev,
         date: ev.date ? new Date(ev.date) : null,
         startTime: ev.date && ev.startTime ? new Date(`${ev.date}T${ev.startTime}`) : null,
         endTime: ev.date && ev.endTime ? new Date(`${ev.date}T${ev.endTime}`) : null,
-      }));
-      setEvents(parsed);
+      })));
       setStep("approved");
     } catch (err) {
       setError("Failed to finalize schedule. Please try again.");
@@ -1389,7 +1419,7 @@ const ScheduleTab = () => {
     }
   };
 
-  const reset = () => { setStep("setup"); setClientName(""); setContractDate(""); setEvents([]); setConflicts([]); setError(""); };
+  const reset = () => { setStep("setup"); setClientName(""); setContractDate(""); setEvents([]); setConflicts([]); setError(""); setComparison(null); setRevisionMessages([]); };
 
   const copyAll = () => {
     const text = events.map(ev => {
@@ -1463,7 +1493,7 @@ const ScheduleTab = () => {
             <div style={{ fontSize: 11, color: C.dim, marginBottom: 6, letterSpacing: 1 }}>PROJECT TYPE</div>
             <div style={{ display: "flex", gap: 8 }}>
               {[["id", "ID Construction"], ["furnishings", "Furnishings"]].map(([val, label]) => (
-                <button key={val} onClick={() => setProjectType(val)} style={{
+                <button key={val} onClick={() => { setProjectType(val); setDesigner(val === "furnishings" ? "Lillian" : "Chloe"); }} style={{
                   flex: 1, padding: "10px", borderRadius: 6, cursor: "pointer",
                   fontFamily: "'Playfair Display', serif", fontSize: 13, letterSpacing: 1,
                   background: projectType === val ? C.gold : C.surface,
@@ -1486,7 +1516,9 @@ const ScheduleTab = () => {
 
           <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 8, padding: "14px 16px", marginBottom: 20, fontSize: 12, color: C.dim, lineHeight: 1.6 }}>
             <div style={{ color: C.text, marginBottom: 4, fontSize: 13 }}>📅 Calendar-aware scheduling</div>
-            Claude will check your calendar for conflicts and propose dates that work — no Mondays, presentations on Fridays where possible, design blocks protected.
+            {projectType === "id"
+              ? "Claude will check both Chloe and Stephanie's availability and show you who has the earlier completion date."
+              : "Claude will check Lillian's availability and propose a conflict-free schedule."}
           </div>
 
           <button onClick={generate} disabled={!clientName.trim() || !contractDate} style={{
@@ -1501,11 +1533,74 @@ const ScheduleTab = () => {
       {(step === "loading" || step === "finalizing") && (
         <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "80px 0", gap: 16 }}>
           <div style={{ fontSize: 13, color: C.dim, letterSpacing: 2 }}>
-            {step === "loading" ? "CHECKING CALENDAR + BUILDING SCHEDULE…" : "FINALIZING SCHEDULE…"}
+            {step === "loading" ? (projectType === "id" ? "CHECKING BOTH DESIGNERS' AVAILABILITY…" : "CHECKING CALENDAR + BUILDING SCHEDULE…") : "FINALIZING SCHEDULE…"}
           </div>
           <div style={{ fontSize: 12, color: C.dim }}>
-            {step === "loading" ? `Planning ${projectType === "id" ? "ID Construction" : "Furnishings"} project for ${clientName}` : "Placing all design blocks around confirmed meetings"}
+            {step === "loading" && projectType === "id" ? "Comparing Chloe and Stephanie's schedules simultaneously" : step === "loading" ? `Planning Furnishings project for ${clientName}` : "Placing all design blocks around confirmed meetings"}
           </div>
+        </div>
+      )}
+
+      {step === "compare" && comparison && (
+        <div style={{ maxWidth: 700, margin: "0 auto" }}>
+          <div style={{ marginBottom: 24 }}>
+            <div style={{ fontSize: 18, color: C.text, fontFamily: "'Playfair Display', serif", marginBottom: 4 }}>{clientName}</div>
+            <div style={{ fontSize: 12, color: C.dim }}>ID Construction · Choose your designer</div>
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 20 }}>
+            {["Chloe", "Stephanie"].map(d => {
+              const data = comparison[d];
+              const lastDate = getLastDate(data.parsed);
+              const firstDate = data.parsed.filter(e => e.date).reduce((earliest, e) => {
+                const d2 = new Date(e.date); return d2 < earliest ? d2 : earliest;
+              }, new Date(9999, 0));
+              const totalWeeks = lastDate > new Date(0) ? Math.round((lastDate - firstDate) / (1000 * 60 * 60 * 24 * 7) * 10) / 10 : null;
+              const isEarlier = d === "Chloe"
+                ? getLastDate(comparison.Chloe.parsed) <= getLastDate(comparison.Stephanie.parsed)
+                : getLastDate(comparison.Stephanie.parsed) < getLastDate(comparison.Chloe.parsed);
+              return (
+                <div key={d} style={{
+                  background: C.surface, border: `2px solid ${isEarlier ? C.gold : C.border}`,
+                  borderRadius: 10, padding: "24px 20px", position: "relative"
+                }}>
+                  {isEarlier && (
+                    <div style={{ position: "absolute", top: -11, left: 16, background: C.gold, color: C.bg, fontSize: 10, letterSpacing: 1, padding: "2px 10px", borderRadius: 10, fontFamily: "'Playfair Display', serif" }}>
+                      EARLIEST COMPLETION
+                    </div>
+                  )}
+                  <div style={{ fontSize: 20, color: C.text, fontFamily: "'Playfair Display', serif", marginBottom: 16 }}>{d}</div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 20 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13 }}>
+                      <span style={{ color: C.dim }}>Completion</span>
+                      <span style={{ color: C.text, fontWeight: 500 }}>{lastDate > new Date(0) ? lastDate.toLocaleDateString("en-CA", { month: "short", day: "numeric", year: "numeric" }) : "—"}</span>
+                    </div>
+                    <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13 }}>
+                      <span style={{ color: C.dim }}>Total duration</span>
+                      <span style={{ color: C.text }}>{totalWeeks ? `${totalWeeks} weeks` : "—"}</span>
+                    </div>
+                    {data.conflicts && data.conflicts.length > 0 && (
+                      <div style={{ fontSize: 11, color: "#a0896a", background: "#a0896a22", borderRadius: 6, padding: "6px 10px", marginTop: 4 }}>
+                        ⚠ {data.conflicts.length} conflict{data.conflicts.length > 1 ? "s" : ""} adjusted
+                      </div>
+                    )}
+                    {(!data.conflicts || data.conflicts.length === 0) && (
+                      <div style={{ fontSize: 11, color: "#7a9e8e", background: "#7a9e8e22", borderRadius: 6, padding: "6px 10px", marginTop: 4 }}>
+                        ✓ No conflicts
+                      </div>
+                    )}
+                  </div>
+                  <button onClick={() => selectDesigner(d)} style={{
+                    width: "100%", background: isEarlier ? C.gold : "transparent",
+                    color: isEarlier ? C.bg : C.muted,
+                    border: `1px solid ${isEarlier ? C.gold : C.border}`,
+                    borderRadius: 6, padding: "10px", cursor: "pointer",
+                    fontSize: 12, fontFamily: "'Playfair Display', serif", letterSpacing: 1
+                  }}>SELECT {d.toUpperCase()} →</button>
+                </div>
+              );
+            })}
+          </div>
+          <button onClick={reset} style={{ background: "transparent", border: `1px solid ${C.border}`, borderRadius: 6, color: C.dim, padding: "8px 16px", cursor: "pointer", fontSize: 12, fontFamily: "'Archivo', sans-serif" }}>← Start Over</button>
         </div>
       )}
 
