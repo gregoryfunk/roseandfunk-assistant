@@ -291,7 +291,190 @@ const PROCEDURES = [
       },
     ]
   },
-];
+  {
+    category: "Furnishings — Pre Design",
+    items: [
+      {
+        title: "Client Intake & Discovery", owner: "ADMIN + PRINCIPAL",
+        steps: [
+          { text: "Client completes Intake Form on website. If client contacts directly via call or email, send them the Keap link.", owner: "CLIENT" },
+          { text: "Immediately send Client Follow Up Email to book Discovery Call via Keap.", owner: "AUTOMATIC" },
+          { text: "Client books Discovery Call using Keap link. Timeblock these to certain days and times.", owner: "CLIENT" },
+          { text: "Immediately send Discovery Call Booking Confirmation. Request project info, inspiration, or plans if not included in intake form.", owner: "AUTOMATIC" },
+          { text: "Send Discovery Call Reminder 24 hours prior via Keap.", owner: "AUTOMATIC" },
+          { text: "DISCOVERY CALL (15–30 min) via Zoom or Google Meet. Determine services they're interested in, gather project scope details.", owner: "PRINCIPAL" },
+          { text: "Send Client Follow Up Email next day.", owner: "AUTOMATIC" },
+          { text: "Create Budget Spreadsheet.", owner: "PRINCIPAL" },
+          { text: "Within 3 days of Discovery Call, send link to schedule Proposal Review via Keap.", owner: "AUTOMATIC" },
+          { text: "Client books Proposal Review via Keap link.", owner: "CLIENT" },
+          { text: "Immediately send Proposal Booking Confirmation Email.", owner: "AUTOMATIC" },
+          { text: "Send Reminder for Proposal Review 24 hours prior.", owner: "AUTOMATIC" },
+        ]
+      },
+      {
+        title: "Proposal Review & Contract", owner: "PRINCIPAL + ADMIN",
+        steps: [
+          { text: "PROPOSAL REVIEW (60–90 min).", owner: "PRINCIPAL" },
+          { text: "Send Follow Up Email to client after Proposal Review next day.", owner: "ADMIN" },
+          { text: "Client emails confirmation of wanting furniture design services.", owner: "CLIENT" },
+          { text: "Immediately following confirmation, send Welcome Book & Next Steps (contract signatures, scheduling, invoices). Outline scope + custom design fee proposal. Put an expiration date (7–14 days).", owner: "ADMIN" },
+          { text: "Same day as Welcome Book, send DocuSign.", owner: "ADMIN" },
+          { text: "Receive signed contract. Set up project in Harvest, QB, and Drive.", owner: "ADMIN" },
+          { text: "Immediately send Follow Up Email thanking client for signed contract. Let them know Retainer invoice is going out today. Ask availability for meetings.", owner: "ADMIN" },
+          { text: "Send Retainer Invoice upon receipt of signed contract.", owner: "ADMIN" },
+          { text: "Within 24 hours of signed contract, schedule project in calendar following Calendar Process. Send client their first initial meeting date.", owner: "ADMIN" },
+          { text: "Within 3 days of signed contract, send client proposed meeting dates with payment schedule.", owner: "ADMIN" },
+          { text: "Within 3 days of signed contract, send Invoice for Phase 1.", owner: "ADMIN" },
+          { text: "Send client reminder email 24 hours before Initial Meeting via Keap.", owner: "AUTOMATIC" },
+        ]
+      },
+      {
+        title: "Drawing File Set-Up", owner: "DESIGNER",
+        steps: [
+          { text: "Receive DWG file from client or builder.", owner: "ADMIN" },
+          { text: "Set up Drawing File.", owner: "DESIGNER" },
+          { text: "Set up Drawing Sheets.", owner: "DESIGNER" },
+          { text: "Furniture Layout in AutoCAD.", owner: "DESIGNER" },
+          { text: "Set up all meeting dates in calendar: Initial Meeting, Shopping Day, Furniture Meeting, Furniture & Fabric Confirmation Meeting, Accessory & Art Meeting, Furniture & Accessory Set-Up Day.", owner: "ADMIN" },
+        ]
+      },
+    ]
+  },
+  {
+    category: "Furnishings — Phase 1 | Concept",
+    items: [
+      {
+        title: "1.1 Initial Meeting", owner: "PRINCIPAL + DESIGNER",
+        steps: [
+          { text: "INITIAL MEETING (60–90 min). Review Welcome Book, scope, budget allowances, and inspiration images.", owner: "PRINCIPAL, DESIGNER, CLIENT" },
+          { text: "Review RF Design Process with client.", owner: "PRINCIPAL" },
+          { text: "Go through client wishlist.", owner: "PRINCIPAL, DESIGNER" },
+          { text: "Go through client budget.", owner: "PRINCIPAL" },
+          { text: "Review client inspiration photos.", owner: "PRINCIPAL, DESIGNER" },
+          { text: "Send Follow Up Email with Recap and outline of next steps 1–2 days after Initial Meeting.", owner: "DESIGNER" },
+        ]
+      },
+      {
+        title: "1.2 – 1.4 Sourcing & Mood Boards", owner: "DESIGNER + PRINCIPAL",
+        steps: [
+          { text: "Sourcing — research and source all furniture selections.", owner: "DESIGNER, PRINCIPAL" },
+          { text: "Team Shopping Day (as needed).", owner: "DESIGNER, PRINCIPAL" },
+          { text: "Build Furniture Mood Boards.", owner: "DESIGNER" },
+          { text: "Gregory reviews Furniture Mood Boards.", owner: "PRINCIPAL" },
+        ]
+      },
+      {
+        title: "1.5 – 1.7 Furniture Pricing, Meeting & Revisions", owner: "DESIGNER + PRINCIPAL",
+        steps: [
+          { text: "Compile Furniture Pricing. Note all requested revisions.", owner: "DESIGNER" },
+          { text: "Send Phase 2 Invoice.", owner: "ADMIN" },
+          { text: "Send reminder email for Furniture Meeting via Keap.", owner: "AUTOMATIC" },
+          { text: "FURNITURE MEETING (2 hours). Present furniture boards and pricing to client.", owner: "DESIGNER, PRINCIPAL, CLIENT" },
+          { text: "Send Follow Up Email with meeting notes and next steps 1–2 days after meeting.", owner: "DESIGNER" },
+          { text: "Client submits revisions and feedback.", owner: "CLIENT" },
+          { text: "Make Furniture Meeting Revisions.", owner: "DESIGNER" },
+        ]
+      },
+    ]
+  },
+  {
+    category: "Furnishings — Phase 2 | Finalize & Order",
+    items: [
+      {
+        title: "2.1 – 2.5 Selections, Samples & Confirmation Meeting", owner: "DESIGNER",
+        steps: [
+          { text: "Enter all product selections into Gather.", owner: "DESIGNER" },
+          { text: "Order Samples of All Materials.", owner: "DESIGNER" },
+          { text: "Send reminder email for Furniture & Fabric Confirmation Meeting via Keap.", owner: "AUTOMATIC" },
+          { text: "FURNITURE & FABRIC CONFIRMATION MEETING — On Site (1.5 hours). Confirm all furniture and finishes; take any measurements needed. Include drapery measurement if applicable.", owner: "DESIGNER, PRINCIPAL, CLIENT" },
+          { text: "Allow travel time for on-site meeting.", owner: "DESIGNER, PRINCIPAL" },
+          { text: "Make Furniture & Fabric Confirmation Meeting Revisions.", owner: "DESIGNER" },
+        ]
+      },
+      {
+        title: "2.6 – 2.11 Sign-Off & Ordering", owner: "ADMIN + DESIGNER",
+        steps: [
+          { text: "Send Client Sign-off.", owner: "ADMIN" },
+          { text: "Receive Client Sign-off.", owner: "ADMIN" },
+          { text: "Put together Orders.", owner: "ADMIN, DESIGNER" },
+          { text: "Invoice client for Furniture.", owner: "ADMIN" },
+          { text: "Client pays furniture invoice.", owner: "CLIENT" },
+          { text: "Place Furniture Orders. Start with large and custom items first.", owner: "ADMIN" },
+          { text: "Schedule Deliveries and confirm Warehousing.", owner: "ADMIN" },
+        ]
+      },
+    ]
+  },
+  {
+    category: "Furnishings — Phase 3 | Accessories",
+    items: [
+      {
+        title: "4.1 – 4.3 Art & Accessory Sourcing & Presentation", owner: "DESIGNER",
+        steps: [
+          { text: "Art Sourcing — research and source all art and accessory selections.", owner: "DESIGNER, PRINCIPAL" },
+          { text: "Build Accessory & Art Concept Boards with pricing.", owner: "DESIGNER" },
+          { text: "Send client Accessory & Art Boards by email. Ask for feedback within 3 days. Clearly state how many rounds of revisions they will receive.", owner: "DESIGNER" },
+          { text: "ACCESSORY & ART CONCEPT MEETING (1.5 hours). Review selections with client.", owner: "DESIGNER, PRINCIPAL, CLIENT" },
+          { text: "Send Follow Up Email with meeting notes and next steps 1–2 days after meeting.", owner: "DESIGNER" },
+        ]
+      },
+      {
+        title: "4.4 – 4.9 Revisions, Sign-Off & Orders", owner: "DESIGNER + ADMIN",
+        steps: [
+          { text: "Make Accessory & Art Concept Board Revisions.", owner: "DESIGNER" },
+          { text: "Send Client Sign-off for Accessories & Art.", owner: "ADMIN" },
+          { text: "Receive Client Sign-off.", owner: "ADMIN" },
+          { text: "Invoice client for Accessories & Art.", owner: "ADMIN" },
+          { text: "Client pays Accessories & Art invoice (due within 3 days).", owner: "CLIENT" },
+          { text: "Place Accessories Orders within 24 hours of receiving payment. Send all orders to warehouse for holding.", owner: "DESIGNER" },
+          { text: "Accessory Shopping Day (as needed).", owner: "DESIGNER, PRINCIPAL" },
+          { text: "Allow travel time for Accessory Shopping Day.", owner: "DESIGNER, PRINCIPAL" },
+        ]
+      },
+    ]
+  },
+  {
+    category: "Furnishings — Phase 4 | Installation",
+    items: [
+      {
+        title: "Install Scheduling & Preparation", owner: "ADMIN + DESIGNER",
+        steps: [
+          { text: "Schedule Furniture & Accessory Set-Up Day in calendar.", owner: "ADMIN" },
+          { text: "Schedule art installers.", owner: "ADMIN" },
+          { text: "30–60 days prior to install, email client to confirm install date. Confirm spaces will be cleaned and cleared beforehand.", owner: "ADMIN" },
+          { text: "30–60 days prior to install, schedule delivery date and handyman/art installer.", owner: "ADMIN" },
+          { text: "30–60 days prior to install, schedule photographer and stylist if photographing the project.", owner: "ADMIN" },
+          { text: "2 weeks prior to install: print room labels, floor plans, product lists. Have linens laundered, light bulbs and pillow inserts ready, schedule lunch delivery, get cash for tips, pack install day kit, order florals.", owner: "DESIGNER, ADMIN" },
+          { text: "1 week prior to install, photoshoot prep: confirm shot list, styling items, headshot poses and outfits, weather, etc.", owner: "DESIGNER" },
+          { text: "Send Reminder of Install Day 24 hours prior.", owner: "AUTOMATIC" },
+        ]
+      },
+      {
+        title: "5.1 – 5.6 Deliveries & Install", owner: "DESIGNER + PRINCIPAL",
+        steps: [
+          { text: "Accept Deliveries on site.", owner: "DESIGNER, PRINCIPAL, ADMIN" },
+          { text: "Allow travel time for deliveries.", owner: "DESIGNER, PRINCIPAL, ADMIN" },
+          { text: "FURNITURE SET-UP (full day). Deliver, place, and set up all furniture.", owner: "DESIGNER, PRINCIPAL" },
+          { text: "Allow travel time for Furniture Set-Up.", owner: "DESIGNER, PRINCIPAL" },
+          { text: "ACCESSORY INSTALL (full day). Place and style all accessories and art.", owner: "DESIGNER, PRINCIPAL" },
+          { text: "Allow travel time for Accessory Install.", owner: "DESIGNER, PRINCIPAL" },
+          { text: "Process Accessory Returns as needed.", owner: "DESIGNER" },
+          { text: "Allow travel time for Accessory Returns.", owner: "DESIGNER" },
+        ]
+      },
+      {
+        title: "Photoshoot & Project Close-Out", owner: "DESIGNER + ADMIN",
+        steps: [
+          { text: "Email photographer for availability and schedule Photoshoot Day.", owner: "ADMIN" },
+          { text: "PHOTOSHOOT DAY.", owner: "DESIGNER, PRINCIPAL, CLIENT" },
+          { text: "CLIENT FINAL WALK-THROUGH (1–2 hours). Walk through all spaces with client. Create list of outstanding tasks.", owner: "PRINCIPAL, DESIGNER, CLIENT" },
+          { text: "Day of walk-through: create list of outstanding tasks to be completed in 30–90 days.", owner: "DESIGNER, PRINCIPAL" },
+          { text: "Within 30–90 days of install, complete all outstanding tasks. Send weekly emails to client with status updates.", owner: "DESIGNER" },
+          { text: "Within 30–90 days of install, send Project Completion Email to client with feedback request. Send client gift if possible.", owner: "ADMIN" },
+        ]
+      },
+    ]
+  },
 
 const ownerColor = (owner = "") => {
   if (owner.includes("GREGORY") || owner.includes("PRINCIPAL")) return C.gold;
