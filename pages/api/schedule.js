@@ -27,14 +27,14 @@ PHASE 2:
 - 2 days: Lighting Concept Boards (design block)
 - 1 day: Sketch Elevations (Gregory OFF, design block)
 - 2 days: Elevations in AutoCAD (design block)
-- Concept Elevation + Material Meeting (4 hrs) - CLIENT MEETING - options needed - PREFER FRIDAY
+- Concept Elevation + Material Meeting (4 hrs) - CLIENT MEETING - options needed - PREFER FRIDAY BUT ANY TUE-FRI IS FINE
 - 1 rest day
 
 PHASE 3:
 - 2 days: Concept Revisions + Material Boards (design block)
 - 3 days: Documentation (design block)
 - 1 day: Concept Exterior (design block)
-- Material Confirmation Meeting (3 hrs) - CLIENT MEETING - options needed - PREFER FRIDAY
+- Material Confirmation Meeting (3 hrs) - CLIENT MEETING - options needed - PREFER FRIDAY BUT ANY TUE-FRI IS FINE
 - 1 rest day
 
 PHASE 4:
@@ -45,7 +45,7 @@ PHASE 4:
 - 1 day: Drawing Details (design block)
 - 2 days: Dimension + Noting Elevations (design block)
 - 5 days: Plan Layouts (design block)
-- Final Review Meeting (3 hrs) - CLIENT MEETING - options needed - PREFER FRIDAY
+- Final Review Meeting (3 hrs) - CLIENT MEETING - options needed - PREFER FRIDAY BUT ANY TUE-FRI IS FINE
 - 2 rest days
 
 POST FINAL:
@@ -137,7 +137,7 @@ Today's date: ${new Date().toISOString().split("T")[0]}
 Generate the complete project schedule starting from the contract date.
 Work strictly through the phase sequence for this project type.
 Never schedule anything on a Monday.
-For big presentations (4hr meetings) always use 11:00 or 13:00 start times.
+For big presentations (4hr meetings) always use 11:00 or 13:00 start times. Friday is preferred but Tuesday-Friday are all acceptable.
 For 1.5-2hr meetings use 10:00 or 11:00 start times.
 For install/full-day events use 09:00-17:00.
 Provide exactly 3 date options for every client meeting, spaced across Tue-Fri.`;
