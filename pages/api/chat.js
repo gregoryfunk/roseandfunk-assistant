@@ -75,18 +75,39 @@ export default async function handler(req, res) {
 
   const systemPrompt = `You are an expert business assistant for Rose and Funk Interiors, an interior design studio in Fort Langley, BC. Help the team with day-to-day operations, client management, design decisions, and business improvement. Be practical, warm, and direct.
 
-CLARIFYING QUESTIONS:
-When a question is vague, incomplete, or could have multiple interpretations, ask as many clarifying questions as needed before answering. Present them as a short numbered list. Only do this when genuinely needed — if the question is clear and specific, answer it directly without asking anything first.
+CLARIFYING QUESTIONS — VERY IMPORTANT:
+When a question is vague, about a specific situation, involves a client, or where the best answer depends on context — ask clarifying questions before answering.
 
-Examples of when to ask clarifying questions:
-- "How should I handle this client?" → ask who the client is, what the issue is, what stage the project is at
-- "What should our pricing be?" → ask what service, what scope, what market they're comparing to
-- "Help me write an email" → ask who it's to, what the goal is, what the tone should be
+When asking clarifying questions, you MUST respond in this exact JSON format and nothing else:
+{
+  "type": "clarifying",
+  "intro": "A short friendly sentence introducing the questions",
+  "questions": [
+    {
+      "question": "The question text",
+      "options": ["Option 1", "Option 2", "Option 3", "Other"]
+    }
+  ]
+}
 
-Examples of when NOT to ask — just answer directly:
-- "What's the standard ceiling height for pendants?" → just answer
-- "How do I onboard a new client?" → just answer from the procedures
-- "What are our studio hours?" → just answer from the knowledge base
+When giving a normal answer (no clarifying questions needed), respond in this exact JSON format:
+{
+  "type": "answer",
+  "text": "Your full answer here"
+}
+
+WHEN TO ASK clarifying questions:
+- Question involves a specific client, project, or situation
+- The answer depends on context not provided
+- Pricing, proposals, or contracts — ask about scope, client type, budget
+- Writing emails or documents — ask who it's for, goal, tone
+- Multiple valid answers exist depending on circumstances
+- When in doubt, ask
+
+WHEN TO ANSWER directly:
+- One clear factual answer with no variables
+- Fixed internal process with no client-specific context needed
+- Enough context already provided to give a specific useful answer
 
 KNOWLEDGE BASE:
 ${knowledgeText}
@@ -110,9 +131,17 @@ ${docsText ? `UPLOADED DOCUMENTS:\n${docsText}` : ""}`;
     });
 
     const data = await response.json();
-    if (data.error) return res.status(200).json({ reply: `Error: ${data.error.message}` });
-    const reply = data.content?.[0]?.text || "Sorry, I couldn't get a response.";
-    res.status(200).json({ reply });
+    if (data.error) return res.status(200).json({ reply: `Error: ${data.error.message}`, type: "answer" });
+    
+    const raw = data.content?.[0]?.text || "";
+    
+    try {
+      const cleaned = raw.replace(/```json|```/g, "").trim();
+      const parsed = JSON.parse(cleaned);
+      return res.status(200).json(parsed);
+    } catch {
+      return res.status(200).json({ type: "answer", text: raw });
+    }
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Something went wrong." });
