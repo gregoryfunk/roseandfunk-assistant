@@ -116,9 +116,11 @@ const api = (body) => fetch("/api/chat", {
 }).then(r => r.json());
 
 const extractPdfText = async (arrayBuffer) => {
-  const script = document.createElement("script");
-  script.src = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js";
-  await new Promise((res, rej) => { script.onload = res; script.onerror = rej; document.head.appendChild(script); });
+  if (!window.pdfjsLib) {
+    const script = document.createElement("script");
+    script.src = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js";
+    await new Promise((res, rej) => { script.onload = res; script.onerror = rej; document.head.appendChild(script); });
+  }
   const pdfjsLib = window.pdfjsLib;
   pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
   const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
@@ -129,6 +131,12 @@ const extractPdfText = async (arrayBuffer) => {
     text += content.items.map(item => item.str).join(" ") + "\n";
   }
   return text;
+};
+
+const getSessionId = () => {
+  let id = localStorage.getItem("rf_session_id");
+  if (!id) { id = Math.random().toString(36).slice(2); localStorage.setItem("rf_session_id", id); }
+  return id;
 };
 
 export default function App() {
@@ -145,12 +153,17 @@ export default function App() {
   const [uploading, setUploading] = useState(false);
   const [expandedProc, setExpandedProc] = useState(null);
   const [saveMsg, setSaveMsg] = useState("");
+  const [searches, setSearches] = useState([]);
+  const [sessionId, setSessionId] = useState("");
   const bottomRef = useRef(null);
   const fileRef = useRef(null);
 
   useEffect(() => {
+    const sid = getSessionId();
+    setSessionId(sid);
     api({ action: "load_knowledge" }).then(d => { if (d.content) setKnowledge(d.content); });
     api({ action: "load_documents" }).then(d => { if (d.documents) setDocuments(d.documents); });
+    api({ action: "load_searches", session_id: sid }).then(d => { if (d.searches) setSearches(d.searches); });
   }, []);
 
   useEffect(() => {
@@ -159,11 +172,20 @@ export default function App() {
 
   const send = async () => {
     if (!input.trim() || loading) return;
-    const userMsg = { role: "user", content: input.trim() };
+    const question = input.trim();
+    const userMsg = { role: "user", content: question };
     const updated = [...messages, userMsg];
     setMessages(updated);
     setInput("");
     setLoading(true);
+
+    // Save search
+    api({ action: "save_search", session_id: sessionId, question }).then(() => {
+      api({ action: "load_searches", session_id: sessionId }).then(d => {
+        if (d.searches) setSearches(d.searches);
+      });
+    });
+
     try {
       const data = await api({ messages: updated });
       setMessages([...updated, { role: "assistant", content: data.reply || "Sorry, no response." }]);
@@ -171,6 +193,16 @@ export default function App() {
       setMessages([...updated, { role: "assistant", content: "Something went wrong. Please try again." }]);
     }
     setLoading(false);
+  };
+
+  const reaskQuestion = (question) => {
+    setInput(question);
+    setTab("Chat");
+  };
+
+  const deleteSearch = async (id) => {
+    await api({ action: "delete_search", id });
+    setSearches(s => s.filter(x => x.id !== id));
   };
 
   const saveKnowledge = async () => {
@@ -217,6 +249,7 @@ export default function App() {
 
   return (
     <div style={{ minHeight: "100vh", background: C.bg, color: C.text, fontFamily: "Georgia, serif", display: "flex", flexDirection: "column" }}>
+      {/* Header */}
       <div style={{ background: C.surface, borderBottom: `1px solid ${C.border}`, padding: "18px 24px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
           <img src="/logo.png" alt="Rose & Funk" style={{ height: 48, objectFit: "contain" }} />
@@ -235,150 +268,183 @@ export default function App() {
         </div>
       </div>
 
-      {tab === "Chat" && (
-        <div style={{ flex: 1, display: "flex", flexDirection: "column", maxWidth: 800, width: "100%", margin: "0 auto", padding: "0 16px" }}>
-          <div style={{ flex: 1, overflowY: "auto", padding: "24px 0", display: "flex", flexDirection: "column", gap: 16 }}>
-            {messages.map((m, i) => (
-              <div key={i} style={{ display: "flex", flexDirection: "column", alignItems: m.role === "user" ? "flex-end" : "flex-start" }}>
-                <div style={{
-                  maxWidth: "75%", padding: "12px 16px", borderRadius: 8, lineHeight: 1.6, fontSize: 14,
-                  background: m.role === "user" ? C.gold : C.surface,
-                  color: m.role === "user" ? C.bg : C.text,
-                  border: m.role === "assistant" ? `1px solid ${C.border}` : "none"
-                }}>
-                  {m.content.split("\n").map((ln, j) => <div key={j}>{ln || <br />}</div>)}
-                </div>
-                {m.role === "assistant" && i > 0 && (
-                  <button onClick={() => saveToKnowledge(m.content)} style={{
-                    marginTop: 4, background: "transparent", border: `1px solid ${C.border}`,
-                    borderRadius: 4, color: C.dim, fontSize: 10, padding: "3px 10px",
-                    cursor: "pointer", letterSpacing: 1, fontFamily: "Georgia, serif"
-                  }}>+ SAVE TO KNOWLEDGE BASE</button>
-                )}
-              </div>
-            ))}
-            {loading && (
-              <div style={{ display: "flex", justifyContent: "flex-start" }}>
-                <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 8, padding: "12px 16px", color: C.dim, fontSize: 13 }}>Thinking…</div>
-              </div>
-            )}
-            {saveMsg && <div style={{ textAlign: "center", color: C.gold, fontSize: 12 }}>{saveMsg}</div>}
-            <div ref={bottomRef} />
-          </div>
-          <div style={{ padding: "16px 0 24px", display: "flex", gap: 10, alignItems: "flex-end" }}>
-            <textarea value={input} onChange={e => setInput(e.target.value)}
-              onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } }}
-              placeholder="Ask anything about Rose & Funk operations, clients, or procedures…"
-              rows={3} style={{
-                flex: 1, background: C.surface, border: `1px solid ${C.border}`, borderRadius: 8,
-                color: C.text, padding: "12px 14px", fontSize: 14, resize: "none",
-                outline: "none", fontFamily: "Georgia, serif", lineHeight: 1.5
-              }} />
-            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-              <button onClick={send} disabled={loading || !input.trim()} style={{
-                background: C.gold, color: C.bg, border: "none", borderRadius: 6,
-                padding: "10px 18px", cursor: "pointer", fontSize: 13, fontFamily: "Georgia, serif",
-                opacity: loading || !input.trim() ? 0.5 : 1
-              }}>Send</button>
-              <button onClick={() => setMessages([{ role: "assistant", content: "Hi! I'm your Rose & Funk business assistant. Ask me anything about your processes, client situations, or how to handle day-to-day operations — or browse the tabs for references and documents." }])} style={{
-                background: "transparent", color: C.dim, border: `1px solid ${C.border}`,
-                borderRadius: 6, padding: "8px 18px", cursor: "pointer", fontSize: 11, fontFamily: "Georgia, serif"
-              }}>Clear</button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Main layout */}
+      <div style={{ flex: 1, display: "flex", overflow: "hidden" }}>
 
-      {tab === "Knowledge Base" && (
-        <div style={{ flex: 1, maxWidth: 800, width: "100%", margin: "0 auto", padding: "24px 16px", display: "flex", flexDirection: "column", gap: 20 }}>
-          <div style={{ fontSize: 11, letterSpacing: 2, color: C.dim }}>KNOWLEDGE BASE — saved to database, persists for all team members</div>
-          <textarea value={knowledge} onChange={e => setKnowledge(e.target.value)} rows={22} style={{
-            width: "100%", background: C.surface, border: `1px solid ${C.border}`,
-            borderRadius: 8, color: C.text, padding: "14px", fontSize: 13,
-            fontFamily: "monospace", lineHeight: 1.6, resize: "vertical", outline: "none", boxSizing: "border-box"
-          }} />
-          <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-            <button onClick={saveKnowledge} style={{
-              background: C.gold, color: C.bg, border: "none", borderRadius: 6,
-              padding: "10px 22px", cursor: "pointer", fontSize: 13, fontFamily: "Georgia, serif"
-            }}>Save Knowledge Base</button>
-            {kbStatus && <span style={{ color: C.gold, fontSize: 13 }}>{kbStatus}</span>}
-          </div>
-        </div>
-      )}
-
-      {tab === "Documents" && (
-        <div style={{ flex: 1, maxWidth: 800, width: "100%", margin: "0 auto", padding: "24px 16px", display: "flex", flexDirection: "column", gap: 20 }}>
-          <div style={{ fontSize: 11, letterSpacing: 2, color: C.dim }}>UPLOADED DOCUMENTS — the AI reads these automatically</div>
-          <div onClick={() => fileRef.current?.click()} style={{
-            border: `2px dashed ${C.border}`, borderRadius: 8, padding: "32px",
-            textAlign: "center", cursor: "pointer", color: C.dim, fontSize: 14
-          }}>
-            {uploading ? "Uploading and extracting text…" : "Click to upload a file (PDF, TXT, or CSV)"}
-            <input ref={fileRef} type="file" accept=".txt,.csv,.md,.pdf" onChange={handleFileUpload} style={{ display: "none" }} />
-          </div>
-          {documents.length === 0 ? (
-            <div style={{ color: C.dim, fontSize: 13, textAlign: "center" }}>No documents uploaded yet.</div>
+        {/* Sidebar */}
+        <div style={{ width: 220, background: C.surface, borderRight: `1px solid ${C.border}`, display: "flex", flexDirection: "column", overflowY: "auto", flexShrink: 0 }}>
+          <div style={{ padding: "16px 14px 8px", fontSize: 10, letterSpacing: 2, color: C.dim }}>RECENT SEARCHES</div>
+          {searches.length === 0 ? (
+            <div style={{ padding: "8px 14px", fontSize: 12, color: C.dim }}>Your recent questions will appear here</div>
           ) : (
-            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-              {documents.map(doc => (
-                <div key={doc.id} style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 8, padding: "14px 18px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                  <div>
-                    <div style={{ fontSize: 14, color: C.text }}>{doc.name}</div>
-                    <div style={{ fontSize: 11, color: C.dim, marginTop: 3 }}>{doc.content.length.toLocaleString()} characters extracted</div>
+            searches.map(s => (
+              <div key={s.id} style={{ display: "flex", alignItems: "flex-start", gap: 4, padding: "6px 10px", borderBottom: `1px solid ${C.faint}` }}>
+                <button onClick={() => reaskQuestion(s.question)} style={{
+                  flex: 1, background: "transparent", border: "none", color: C.muted,
+                  fontSize: 12, textAlign: "left", cursor: "pointer", fontFamily: "Georgia, serif",
+                  lineHeight: 1.4, padding: "2px 0"
+                }}>
+                  {s.question.length > 60 ? s.question.slice(0, 60) + "…" : s.question}
+                </button>
+                <button onClick={() => deleteSearch(s.id)} style={{
+                  background: "transparent", border: "none", color: C.dim,
+                  cursor: "pointer", fontSize: 14, padding: "0 2px", flexShrink: 0
+                }}>×</button>
+              </div>
+            ))
+          )}
+        </div>
+
+        {/* Content area */}
+        <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
+
+          {tab === "Chat" && (
+            <div style={{ flex: 1, display: "flex", flexDirection: "column", maxWidth: 800, width: "100%", margin: "0 auto", padding: "0 16px" }}>
+              <div style={{ flex: 1, overflowY: "auto", padding: "24px 0", display: "flex", flexDirection: "column", gap: 16 }}>
+                {messages.map((m, i) => (
+                  <div key={i} style={{ display: "flex", flexDirection: "column", alignItems: m.role === "user" ? "flex-end" : "flex-start" }}>
+                    <div style={{
+                      maxWidth: "75%", padding: "12px 16px", borderRadius: 8, lineHeight: 1.6, fontSize: 14,
+                      background: m.role === "user" ? C.gold : C.surface,
+                      color: m.role === "user" ? C.bg : C.text,
+                      border: m.role === "assistant" ? `1px solid ${C.border}` : "none"
+                    }}>
+                      {m.content.split("\n").map((ln, j) => <div key={j}>{ln || <br />}</div>)}
+                    </div>
+                    {m.role === "assistant" && i > 0 && (
+                      <button onClick={() => saveToKnowledge(m.content)} style={{
+                        marginTop: 4, background: "transparent", border: `1px solid ${C.border}`,
+                        borderRadius: 4, color: C.dim, fontSize: 10, padding: "3px 10px",
+                        cursor: "pointer", letterSpacing: 1, fontFamily: "Georgia, serif"
+                      }}>+ SAVE TO KNOWLEDGE BASE</button>
+                    )}
                   </div>
-                  <button onClick={() => deleteDoc(doc.id)} style={{
-                    background: "transparent", border: `1px solid ${C.border}`,
-                    borderRadius: 4, color: C.red, fontSize: 11, padding: "4px 12px",
-                    cursor: "pointer", fontFamily: "Georgia, serif"
-                  }}>Delete</button>
+                ))}
+                {loading && (
+                  <div style={{ display: "flex", justifyContent: "flex-start" }}>
+                    <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 8, padding: "12px 16px", color: C.dim, fontSize: 13 }}>Thinking…</div>
+                  </div>
+                )}
+                {saveMsg && <div style={{ textAlign: "center", color: C.gold, fontSize: 12 }}>{saveMsg}</div>}
+                <div ref={bottomRef} />
+              </div>
+              <div style={{ padding: "16px 0 24px", display: "flex", gap: 10, alignItems: "flex-end" }}>
+                <textarea value={input} onChange={e => setInput(e.target.value)}
+                  onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } }}
+                  placeholder="Ask anything about Rose & Funk operations, clients, or procedures…"
+                  rows={3} style={{
+                    flex: 1, background: C.surface, border: `1px solid ${C.border}`, borderRadius: 8,
+                    color: C.text, padding: "12px 14px", fontSize: 14, resize: "none",
+                    outline: "none", fontFamily: "Georgia, serif", lineHeight: 1.5
+                  }} />
+                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                  <button onClick={send} disabled={loading || !input.trim()} style={{
+                    background: C.gold, color: C.bg, border: "none", borderRadius: 6,
+                    padding: "10px 18px", cursor: "pointer", fontSize: 13, fontFamily: "Georgia, serif",
+                    opacity: loading || !input.trim() ? 0.5 : 1
+                  }}>Send</button>
+                  <button onClick={() => setMessages([{ role: "assistant", content: "Hi! I'm your Rose & Funk business assistant. Ask me anything about your processes, client situations, or how to handle day-to-day operations — or browse the tabs for references and documents." }])} style={{
+                    background: "transparent", color: C.dim, border: `1px solid ${C.border}`,
+                    borderRadius: 6, padding: "8px 18px", cursor: "pointer", fontSize: 11, fontFamily: "Georgia, serif"
+                  }}>Clear</button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {tab === "Knowledge Base" && (
+            <div style={{ flex: 1, maxWidth: 800, width: "100%", margin: "0 auto", padding: "24px 16px", display: "flex", flexDirection: "column", gap: 20 }}>
+              <div style={{ fontSize: 11, letterSpacing: 2, color: C.dim }}>KNOWLEDGE BASE — saved to database, persists for all team members</div>
+              <textarea value={knowledge} onChange={e => setKnowledge(e.target.value)} rows={22} style={{
+                width: "100%", background: C.surface, border: `1px solid ${C.border}`,
+                borderRadius: 8, color: C.text, padding: "14px", fontSize: 13,
+                fontFamily: "monospace", lineHeight: 1.6, resize: "vertical", outline: "none", boxSizing: "border-box"
+              }} />
+              <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+                <button onClick={saveKnowledge} style={{
+                  background: C.gold, color: C.bg, border: "none", borderRadius: 6,
+                  padding: "10px 22px", cursor: "pointer", fontSize: 13, fontFamily: "Georgia, serif"
+                }}>Save Knowledge Base</button>
+                {kbStatus && <span style={{ color: C.gold, fontSize: 13 }}>{kbStatus}</span>}
+              </div>
+            </div>
+          )}
+
+          {tab === "Documents" && (
+            <div style={{ flex: 1, maxWidth: 800, width: "100%", margin: "0 auto", padding: "24px 16px", display: "flex", flexDirection: "column", gap: 20 }}>
+              <div style={{ fontSize: 11, letterSpacing: 2, color: C.dim }}>UPLOADED DOCUMENTS — the AI reads these automatically</div>
+              <div onClick={() => fileRef.current?.click()} style={{
+                border: `2px dashed ${C.border}`, borderRadius: 8, padding: "32px",
+                textAlign: "center", cursor: "pointer", color: C.dim, fontSize: 14
+              }}>
+                {uploading ? "Uploading and extracting text…" : "Click to upload a file (PDF, TXT, or CSV)"}
+                <input ref={fileRef} type="file" accept=".txt,.csv,.md,.pdf" onChange={handleFileUpload} style={{ display: "none" }} />
+              </div>
+              {documents.length === 0 ? (
+                <div style={{ color: C.dim, fontSize: 13, textAlign: "center" }}>No documents uploaded yet.</div>
+              ) : (
+                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                  {documents.map(doc => (
+                    <div key={doc.id} style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 8, padding: "14px 18px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                      <div>
+                        <div style={{ fontSize: 14, color: C.text }}>{doc.name}</div>
+                        <div style={{ fontSize: 11, color: C.dim, marginTop: 3 }}>{doc.content.length.toLocaleString()} characters extracted</div>
+                      </div>
+                      <button onClick={() => deleteDoc(doc.id)} style={{
+                        background: "transparent", border: `1px solid ${C.border}`,
+                        borderRadius: 4, color: C.red, fontSize: 11, padding: "4px 12px",
+                        cursor: "pointer", fontFamily: "Georgia, serif"
+                      }}>Delete</button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {tab === "Procedures" && (
+            <div style={{ flex: 1, maxWidth: 800, width: "100%", margin: "0 auto", padding: "24px 16px", overflowY: "auto" }}>
+              {PROCEDURES.map((cat, ci) => (
+                <div key={ci} style={{ marginBottom: 32 }}>
+                  <div style={{ fontSize: 11, letterSpacing: 3, color: C.gold, marginBottom: 14 }}>{cat.category.toUpperCase()}</div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                    {cat.items.map((proc, pi) => {
+                      const key = `${ci}-${pi}`;
+                      const open = expandedProc === key;
+                      return (
+                        <div key={pi} style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 8, overflow: "hidden" }}>
+                          <div onClick={() => setExpandedProc(open ? null : key)}
+                            style={{ padding: "14px 18px", cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                            <div>
+                              <div style={{ fontSize: 14, color: C.text }}>{proc.title}</div>
+                              <div style={{ fontSize: 11, color: ownerColor(proc.owner), marginTop: 3, letterSpacing: 1 }}>{proc.owner}</div>
+                            </div>
+                            <div style={{ color: C.dim, fontSize: 18 }}>{open ? "−" : "+"}</div>
+                          </div>
+                          {open && (
+                            <div style={{ borderTop: `1px solid ${C.border}`, padding: "14px 18px", display: "flex", flexDirection: "column", gap: 10 }}>
+                              {proc.steps.map((step, si) => (
+                                <div key={si} style={{ display: "flex", gap: 14, alignItems: "flex-start" }}>
+                                  <div style={{ width: 22, height: 22, borderRadius: "50%", background: C.faint, color: C.dim, fontSize: 11, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginTop: 1 }}>{si + 1}</div>
+                                  <div style={{ flex: 1 }}>
+                                    <div style={{ fontSize: 13, color: C.text, lineHeight: 1.5 }}>{step.text}</div>
+                                    <div style={{ fontSize: 10, color: ownerColor(step.owner), marginTop: 3, letterSpacing: 1 }}>{step.owner}</div>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
               ))}
             </div>
           )}
-        </div>
-      )}
 
-      {tab === "Procedures" && (
-        <div style={{ flex: 1, maxWidth: 800, width: "100%", margin: "0 auto", padding: "24px 16px", overflowY: "auto" }}>
-          {PROCEDURES.map((cat, ci) => (
-            <div key={ci} style={{ marginBottom: 32 }}>
-              <div style={{ fontSize: 11, letterSpacing: 3, color: C.gold, marginBottom: 14 }}>{cat.category.toUpperCase()}</div>
-              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                {cat.items.map((proc, pi) => {
-                  const key = `${ci}-${pi}`;
-                  const open = expandedProc === key;
-                  return (
-                    <div key={pi} style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 8, overflow: "hidden" }}>
-                      <div onClick={() => setExpandedProc(open ? null : key)}
-                        style={{ padding: "14px 18px", cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                        <div>
-                          <div style={{ fontSize: 14, color: C.text }}>{proc.title}</div>
-                          <div style={{ fontSize: 11, color: ownerColor(proc.owner), marginTop: 3, letterSpacing: 1 }}>{proc.owner}</div>
-                        </div>
-                        <div style={{ color: C.dim, fontSize: 18 }}>{open ? "−" : "+"}</div>
-                      </div>
-                      {open && (
-                        <div style={{ borderTop: `1px solid ${C.border}`, padding: "14px 18px", display: "flex", flexDirection: "column", gap: 10 }}>
-                          {proc.steps.map((step, si) => (
-                            <div key={si} style={{ display: "flex", gap: 14, alignItems: "flex-start" }}>
-                              <div style={{ width: 22, height: 22, borderRadius: "50%", background: C.faint, color: C.dim, fontSize: 11, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginTop: 1 }}>{si + 1}</div>
-                              <div style={{ flex: 1 }}>
-                                <div style={{ fontSize: 13, color: C.text, lineHeight: 1.5 }}>{step.text}</div>
-                                <div style={{ fontSize: 10, color: ownerColor(step.owner), marginTop: 3, letterSpacing: 1 }}>{step.owner}</div>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          ))}
         </div>
-      )}
+      </div>
     </div>
   );
 }
