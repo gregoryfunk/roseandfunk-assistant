@@ -840,8 +840,19 @@ const FurnishingsEstimator = () => {
         ${roomsWithPrices.map(r => `<tr><td>${r.label}</td><td>${r.roomClass}</td><td>${fmt(r.price)}</td></tr>`).join("")}
         <tr><td colspan="2" style="font-size:12px;color:#8a7a65;">Room Total</td><td>${fmt(roomsTotal)}</td></tr>
       </table>
+      <div class="fee-row" style="font-weight:bold;font-size:15px;border-top:2px solid #d4cdc4;padding-top:12px;margin-bottom:24px;">
+        <span>TOTAL DESIGN FEE</span><span>${fmt(ANCHOR_FEE + roomsTotal)}</span>
+      </div>
+      <div class="section">PAYMENT SCHEDULE</div>
+      ${[{label:"Phase 1",pct:0.40},{label:"Phase 2",pct:0.25},{label:"Phase 3",pct:0.25}].map(p =>
+        `<div class="fee-row"><span>${p.label} (${(p.pct*100).toFixed(0)}% of design fee)</span><span><strong>${fmt((ANCHOR_FEE + roomsTotal) * p.pct)}</strong></span></div>`
+      ).join("")}
+      <div class="fee-row">
+        <span>Phase 4 (10% of design fee${showInstall && installTotal > 0 ? ` + install days` : ""})</span>
+        <span><strong>${fmt((ANCHOR_FEE + roomsTotal) * 0.10 + (showInstall ? installTotal : 0))}</strong></span>
+      </div>
       ${showInstall && installTotal > 0 ? `
-        <div class="section">INSTALL & STYLING</div>
+        <div class="section">INSTALL & STYLING (included in Phase 4)</div>
         ${installDays.map((d, i) => `<div class="fee-row"><span>Day ${i + 1} — ${d.hours}hrs · ${d.admin} admin · ${d.designers} designers</span><span>${fmt((250 * d.hours) + (125 * d.admin * d.hours) + (175 * d.designers * d.hours))}</span></div>`).join("")}
       ` : ""}
       <div class="grand"><span>TOTAL FURNISHING FEE</span><span>${fmt(grandTotal)}</span></div>
@@ -968,31 +979,70 @@ const FurnishingsEstimator = () => {
         )}
       </div>
 
-      {(rooms.length > 0 || (showInstall && installTotal > 0)) && (
-        <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 8, padding: "20px 24px" }}>
-          <div style={{ fontSize: 11, letterSpacing: 2, color: C.dim, marginBottom: 16 }}>TOTAL FURNISHING FEE{clientName ? ` — ${clientName.toUpperCase()}` : ""}</div>
-          <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, color: C.muted, padding: "6px 0", borderBottom: `1px solid ${C.faint}` }}>
-            <span>Anchor Fee</span><span>{fmt(ANCHOR_FEE)}</span>
-          </div>
-          {rooms.length > 0 && (
+      {(rooms.length > 0 || (showInstall && installTotal > 0)) && (() => {
+        const designFee = ANCHOR_FEE + roomsTotal;
+        const FURN_PHASES = [
+          { label: "Phase 1", pct: 0.40 },
+          { label: "Phase 2", pct: 0.25 },
+          { label: "Phase 3", pct: 0.25 },
+        ];
+        const phase4Design = designFee * 0.10;
+        const phase4Total = phase4Design + (showInstall ? installTotal : 0);
+        return (
+          <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 8, padding: "20px 24px" }}>
+            <div style={{ fontSize: 11, letterSpacing: 2, color: C.dim, marginBottom: 16 }}>ESTIMATE SUMMARY{clientName ? ` — ${clientName.toUpperCase()}` : ""}</div>
+
+            {/* Fee breakdown */}
             <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, color: C.muted, padding: "6px 0", borderBottom: `1px solid ${C.faint}` }}>
-              <span>Room Add-Ons</span><span>{fmt(roomsTotal)}</span>
+              <span>Anchor Fee</span><span>{fmt(ANCHOR_FEE)}</span>
             </div>
-          )}
-          {showInstall && installTotal > 0 && (
-            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, color: C.muted, padding: "6px 0", borderBottom: `1px solid ${C.faint}` }}>
-              <span>Install & Styling</span><span>{fmt(installTotal)}</span>
+            {rooms.length > 0 && (
+              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, color: C.muted, padding: "6px 0", borderBottom: `1px solid ${C.faint}` }}>
+                <span>Room Add-Ons</span><span>{fmt(roomsTotal)}</span>
+              </div>
+            )}
+            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 15, color: C.text, padding: "10px 0", borderBottom: `1px solid ${C.border}`, marginBottom: 16 }}>
+              <span>TOTAL DESIGN FEE</span><span style={{ color: C.gold }}>{fmt(designFee)}</span>
             </div>
-          )}
-          <div style={{ display: "flex", justifyContent: "space-between", fontSize: 18, color: C.gold, paddingTop: 12, marginBottom: 20 }}>
-            <span>TOTAL</span><span>{fmt(grandTotal)}</span>
+
+            {/* Phase schedule */}
+            <div style={{ fontSize: 11, letterSpacing: 2, color: C.dim, marginBottom: 12 }}>PAYMENT SCHEDULE</div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 20 }}>
+              {FURN_PHASES.map((p, i) => (
+                <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 14px", background: C.faint, borderRadius: 6 }}>
+                  <div>
+                    <div style={{ fontSize: 13, color: C.text }}>{p.label}</div>
+                    <div style={{ fontSize: 11, color: C.dim, marginTop: 2 }}>{(p.pct * 100).toFixed(0)}% of design fee</div>
+                  </div>
+                  <div style={{ fontSize: 15, color: C.gold }}>{fmt(designFee * p.pct)}</div>
+                </div>
+              ))}
+              {/* Phase 4 */}
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 14px", background: C.faint, borderRadius: 6 }}>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 13, color: C.text }}>Phase 4</div>
+                  <div style={{ fontSize: 11, color: C.dim, marginTop: 2 }}>10% of design fee{showInstall && installTotal > 0 ? ` + install days` : ""}</div>
+                  {showInstall && installTotal > 0 && (
+                    <div style={{ fontSize: 11, color: C.dim, marginTop: 2 }}>
+                      {fmt(phase4Design)} design + {fmt(installTotal)} install
+                    </div>
+                  )}
+                </div>
+                <div style={{ fontSize: 15, color: C.gold }}>{fmt(phase4Total)}</div>
+              </div>
+            </div>
+
+            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 18, color: C.gold, paddingTop: 8, marginBottom: 20, borderTop: `1px solid ${C.border}` }}>
+              <span>TOTAL</span><span>{fmt(grandTotal)}</span>
+            </div>
+
+            <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+              <button onClick={printEstimate} style={{ background: C.gold, color: C.bg, border: "none", borderRadius: 6, padding: "10px 22px", cursor: "pointer", fontSize: 13, fontFamily: "'Archivo', sans-serif" }}>Print / Export PDF</button>
+              {saveStatus && <span style={{ fontSize: 12, color: C.gold }}>{saveStatus}</span>}
+            </div>
           </div>
-          <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-            <button onClick={printEstimate} style={{ background: C.gold, color: C.bg, border: "none", borderRadius: 6, padding: "10px 22px", cursor: "pointer", fontSize: 13, fontFamily: "'Archivo', sans-serif" }}>Print / Export PDF</button>
-            {saveStatus && <span style={{ fontSize: 12, color: C.gold }}>{saveStatus}</span>}
-          </div>
-        </div>
-      )}
+        );
+      })()}
     </div>
   );
 };
