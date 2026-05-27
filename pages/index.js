@@ -184,6 +184,50 @@ const getSessionId = () => {
   return id;
 };
 
+const PinGate = ({ children }) => {
+  const [entered, setEntered] = useState(false);
+  const [pin, setPin] = useState("");
+  const [error, setError] = useState("");
+
+  const submit = () => {
+    if (pin === "1199") {
+      setEntered(true);
+      setError("");
+    } else {
+      setError("Incorrect PIN. Please try again.");
+      setPin("");
+    }
+  };
+
+  if (entered) return children;
+
+  return (
+    <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center" }}>
+      <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 8, padding: "32px 40px", textAlign: "center", width: 280 }}>
+        <div style={{ fontSize: 11, letterSpacing: 2, color: C.dim, marginBottom: 20 }}>ENTER PIN TO ACCESS ESTIMATOR</div>
+        <input
+          type="password"
+          value={pin}
+          onChange={e => setPin(e.target.value)}
+          onKeyDown={e => e.key === "Enter" && submit()}
+          placeholder="••••"
+          maxLength={4}
+          style={{
+            width: "100%", background: C.bg, border: `1px solid ${C.border}`, borderRadius: 6,
+            color: C.text, padding: "12px", fontSize: 20, textAlign: "center",
+            outline: "none", fontFamily: "Georgia, serif", boxSizing: "border-box", marginBottom: 12, letterSpacing: 8
+          }}
+        />
+        {error && <div style={{ fontSize: 12, color: C.red, marginBottom: 10 }}>{error}</div>}
+        <button onClick={submit} style={{
+          background: C.gold, color: C.bg, border: "none", borderRadius: 6,
+          padding: "10px 28px", cursor: "pointer", fontSize: 13, fontFamily: "Georgia, serif", width: "100%"
+        }}>Enter</button>
+      </div>
+    </div>
+  );
+};
+
 const ClarifyingMessage = ({ data, onAnswer }) => {
   const [selections, setSelections] = useState({});
   const select = (qi, option) => setSelections(s => ({ ...s, [qi]: option }));
@@ -637,7 +681,7 @@ export default function App() {
             </div>
           )}
 
-          {tab === "Estimator" && <Estimator />}
+          {tab === "Estimator" && <PinGate><Estimator /></PinGate>}
 
           {tab === "Knowledge Base" && (
             <div style={{ flex: 1, maxWidth: 800, width: "100%", margin: "0 auto", padding: "24px 16px", display: "flex", flexDirection: "column", gap: 20 }}>
