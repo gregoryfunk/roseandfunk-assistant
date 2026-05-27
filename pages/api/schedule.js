@@ -150,7 +150,7 @@ Provide exactly 3 date options for every client meeting, spaced across Tue-Fri.`
           "anthropic-version": "2023-06-01",
         },
         body: JSON.stringify({
-          model: "claude-sonnet-4-20250514",
+          model: "claude-sonnet-4-5",
           max_tokens: 4000,
           system: SCHEDULE_RULES,
           messages: [{ role: "user", content: prompt }],
@@ -201,7 +201,7 @@ Return the complete JSON schedule.`;
           "anthropic-version": "2023-06-01",
         },
         body: JSON.stringify({
-          model: "claude-sonnet-4-20250514",
+          model: "claude-sonnet-4-5",
           max_tokens: 4000,
           system: SCHEDULE_RULES,
           messages: [{ role: "user", content: prompt }],
