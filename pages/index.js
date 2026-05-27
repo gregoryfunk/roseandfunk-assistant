@@ -543,7 +543,7 @@ const PinGate = ({ children }) => {
   return (
     <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center" }}>
       <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 8, padding: "32px 40px", textAlign: "center", width: 280 }}>
-        <div style={{ fontSize: 11, letterSpacing: 2, color: C.dim, marginBottom: 20 }}>ENTER PIN TO ACCESS</div>
+        <div style={{ fontSize: 11, letterSpacing: 2, color: C.dim, marginBottom: 20, fontFamily: "'Playfair Display', serif" }}>ENTER PIN TO ACCESS</div>
         <input
           type="password"
           value={pin}
@@ -554,7 +554,7 @@ const PinGate = ({ children }) => {
           style={{
             width: "100%", background: C.bg, border: `1px solid ${C.border}`, borderRadius: 6,
             color: C.text, padding: "12px", fontSize: 20, textAlign: "center", outline: "none",
-            fontFamily: "Georgia, serif", boxSizing: "border-box", marginBottom: 12, letterSpacing: 8
+            fontFamily: "'Archivo', sans-serif", boxSizing: "border-box", marginBottom: 12, letterSpacing: 8
           }}
         />
         {error && <div style={{ fontSize: 12, color: C.red, marginBottom: 10 }}>{error}</div>}
@@ -562,7 +562,7 @@ const PinGate = ({ children }) => {
           onClick={submit}
           style={{
             background: C.gold, color: C.bg, border: "none", borderRadius: 6,
-            padding: "10px 28px", cursor: "pointer", fontSize: 13, fontFamily: "Georgia, serif", width: "100%"
+            padding: "10px 28px", cursor: "pointer", fontSize: 13, fontFamily: "'Archivo', sans-serif", width: "100%"
           }}
         >Enter</button>
       </div>
@@ -591,7 +591,7 @@ const ClarifyingMessage = ({ data, onAnswer }) => {
                 color: selections[qi] === opt ? C.bg : C.muted,
                 border: `1px solid ${selections[qi] === opt ? C.gold : C.border}`,
                 borderRadius: 20, padding: "5px 14px", cursor: "pointer",
-                fontSize: 12, fontFamily: "Georgia, serif", transition: "all 0.15s"
+                fontSize: 12, fontFamily: "'Archivo', sans-serif", transition: "all 0.15s"
               }}>{opt}</button>
             ))}
           </div>
@@ -600,7 +600,7 @@ const ClarifyingMessage = ({ data, onAnswer }) => {
       {allAnswered && (
         <button onClick={submit} style={{
           background: C.gold, color: C.bg, border: "none", borderRadius: 6,
-          padding: "8px 20px", cursor: "pointer", fontSize: 13, fontFamily: "Georgia, serif", marginTop: 4
+          padding: "8px 20px", cursor: "pointer", fontSize: 13, fontFamily: "'Archivo', sans-serif", marginTop: 4
         }}>Get Answer →</button>
       )}
     </div>
@@ -689,8 +689,8 @@ const Estimator = () => {
           <div style={{ fontSize: 12, color: C.dim, marginTop: 4 }}>Based on $200/hr</div>
         </div>
         <div style={{ display: "flex", gap: 8 }}>
-          <button onClick={() => setShowSaved(!showSaved)} style={{ background: "transparent", border: `1px solid ${C.border}`, borderRadius: 6, color: C.muted, fontSize: 12, padding: "6px 14px", cursor: "pointer", fontFamily: "Georgia, serif" }}>Saved Estimates ({savedEstimates.length})</button>
-          <button onClick={() => { setQtys({}); setClientName(""); }} style={{ background: "transparent", border: `1px solid ${C.border}`, borderRadius: 6, color: C.dim, fontSize: 12, padding: "6px 14px", cursor: "pointer", fontFamily: "Georgia, serif" }}>Reset</button>
+          <button onClick={() => setShowSaved(!showSaved)} style={{ background: "transparent", border: `1px solid ${C.border}`, borderRadius: 6, color: C.muted, fontSize: 12, padding: "6px 14px", cursor: "pointer", fontFamily: "'Archivo', sans-serif" }}>Saved Estimates ({savedEstimates.length})</button>
+          <button onClick={() => { setQtys({}); setClientName(""); }} style={{ background: "transparent", border: `1px solid ${C.border}`, borderRadius: 6, color: C.dim, fontSize: 12, padding: "6px 14px", cursor: "pointer", fontFamily: "'Archivo', sans-serif" }}>Reset</button>
         </div>
       </div>
 
@@ -705,8 +705,8 @@ const Estimator = () => {
                   <div style={{ fontSize: 11, color: C.dim, marginTop: 2 }}>{fmt(est.total)} · {new Date(est.created_at).toLocaleDateString("en-CA")}</div>
                 </div>
                 <div style={{ display: "flex", gap: 8 }}>
-                  <button onClick={() => loadEstimate(est)} style={{ background: C.gold, color: C.bg, border: "none", borderRadius: 4, fontSize: 11, padding: "4px 12px", cursor: "pointer", fontFamily: "Georgia, serif" }}>Load</button>
-                  <button onClick={() => deleteEstimate(est.id)} style={{ background: "transparent", border: `1px solid ${C.border}`, borderRadius: 4, color: C.red, fontSize: 11, padding: "4px 12px", cursor: "pointer", fontFamily: "Georgia, serif" }}>Delete</button>
+                  <button onClick={() => loadEstimate(est)} style={{ background: C.gold, color: C.bg, border: "none", borderRadius: 4, fontSize: 11, padding: "4px 12px", cursor: "pointer", fontFamily: "'Archivo', sans-serif" }}>Load</button>
+                  <button onClick={() => deleteEstimate(est.id)} style={{ background: "transparent", border: `1px solid ${C.border}`, borderRadius: 4, color: C.red, fontSize: 11, padding: "4px 12px", cursor: "pointer", fontFamily: "'Archivo', sans-serif" }}>Delete</button>
                 </div>
               </div>
             ))}
@@ -717,7 +717,7 @@ const Estimator = () => {
         <input value={clientName} onChange={e => setClientName(e.target.value)} placeholder="Client name…" style={{
           width: "100%", background: C.surface, border: `1px solid ${C.border}`, borderRadius: 8,
           color: C.text, padding: "12px 14px", fontSize: 15, outline: "none",
-          fontFamily: "Georgia, serif", boxSizing: "border-box"
+          fontFamily: "'Archivo', sans-serif", boxSizing: "border-box"
         }} />
       </div>
 
@@ -767,8 +767,8 @@ const Estimator = () => {
             ))}
           </div>
           <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-            <button onClick={saveEstimate} style={{ background: C.gold, color: C.bg, border: "none", borderRadius: 6, padding: "10px 22px", cursor: "pointer", fontSize: 13, fontFamily: "Georgia, serif" }}>Save Estimate</button>
-            <button onClick={printEstimate} style={{ background: "transparent", border: `1px solid ${C.border}`, borderRadius: 6, color: C.muted, padding: "10px 22px", cursor: "pointer", fontSize: 13, fontFamily: "Georgia, serif" }}>Print / Export PDF</button>
+            <button onClick={saveEstimate} style={{ background: C.gold, color: C.bg, border: "none", borderRadius: 6, padding: "10px 22px", cursor: "pointer", fontSize: 13, fontFamily: "'Archivo', sans-serif" }}>Save Estimate</button>
+            <button onClick={printEstimate} style={{ background: "transparent", border: `1px solid ${C.border}`, borderRadius: 6, color: C.muted, padding: "10px 22px", cursor: "pointer", fontSize: 13, fontFamily: "'Archivo', sans-serif" }}>Print / Export PDF</button>
             {saveStatus && <span style={{ fontSize: 12, color: C.gold }}>{saveStatus}</span>}
           </div>
         </div>
@@ -860,14 +860,14 @@ const FurnishingsEstimator = () => {
           <div style={{ fontSize: 11, letterSpacing: 2, color: C.dim }}>FURNISHINGS ESTIMATOR</div>
           <div style={{ fontSize: 12, color: C.dim, marginTop: 4 }}>Anchor Fee {fmt(ANCHOR_FEE)} · Major/Secondary/Styling pricing</div>
         </div>
-        <button onClick={() => { setRooms([]); setClientName(""); setInstallDays([]); setShowInstall(false); }} style={{ background: "transparent", border: `1px solid ${C.border}`, borderRadius: 6, color: C.dim, fontSize: 12, padding: "6px 14px", cursor: "pointer", fontFamily: "Georgia, serif" }}>Reset</button>
+        <button onClick={() => { setRooms([]); setClientName(""); setInstallDays([]); setShowInstall(false); }} style={{ background: "transparent", border: `1px solid ${C.border}`, borderRadius: 6, color: C.dim, fontSize: 12, padding: "6px 14px", cursor: "pointer", fontFamily: "'Archivo', sans-serif" }}>Reset</button>
       </div>
 
       <div style={{ marginBottom: 20 }}>
         <input value={clientName} onChange={e => setClientName(e.target.value)} placeholder="Client name…" style={{
           width: "100%", background: C.surface, border: `1px solid ${C.border}`, borderRadius: 8,
           color: C.text, padding: "12px 14px", fontSize: 15, outline: "none",
-          fontFamily: "Georgia, serif", boxSizing: "border-box"
+          fontFamily: "'Archivo', sans-serif", boxSizing: "border-box"
         }} />
       </div>
 
@@ -884,7 +884,7 @@ const FurnishingsEstimator = () => {
         {FURN_ROOMS.filter(r => !rooms.find(x => x.id === r.id)).map(r => (
           <button key={r.id} onClick={() => addClass(r)} style={{
             background: C.surface, border: `1px solid ${C.border}`, borderRadius: 8,
-            padding: "10px 14px", cursor: "pointer", textAlign: "left", fontFamily: "Georgia, serif"
+            padding: "10px 14px", cursor: "pointer", textAlign: "left", fontFamily: "'Archivo', sans-serif"
           }}>
             <div style={{ fontSize: 13, color: C.text }}>{r.label}</div>
             <div style={{ fontSize: 11, color: C.dim, marginTop: 2 }}>from {fmt(r.basePrice * 0.3)}</div>
@@ -909,7 +909,7 @@ const FurnishingsEstimator = () => {
                   <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                     <select value={r.roomClass} onChange={e => setRoomClass(r.id, e.target.value)} style={{
                       background: C.faint, border: `1px solid ${C.border}`, borderRadius: 4,
-                      color: C.text, padding: "4px 8px", fontSize: 12, fontFamily: "Georgia, serif", cursor: "pointer"
+                      color: C.text, padding: "4px 8px", fontSize: 12, fontFamily: "'Archivo', sans-serif", cursor: "pointer"
                     }}>
                       <option value="Major">Major</option>
                       <option value="Secondary">Secondary</option>
@@ -933,7 +933,7 @@ const FurnishingsEstimator = () => {
           background: showInstall ? C.faint : "transparent",
           border: `1px solid ${showInstall ? C.gold : C.border}`,
           borderRadius: 8, padding: "12px 18px", cursor: "pointer",
-          color: showInstall ? C.gold : C.muted, fontSize: 13, fontFamily: "Georgia, serif", width: "100%", textAlign: "left"
+          color: showInstall ? C.gold : C.muted, fontSize: 13, fontFamily: "'Archivo', sans-serif", width: "100%", textAlign: "left"
         }}>
           {showInstall ? "▼" : "▶"} Install & Styling Days {showInstall && installTotal > 0 ? `— ${fmt(installTotal)}` : ""}
         </button>
@@ -943,7 +943,7 @@ const FurnishingsEstimator = () => {
             {installDays.map((d, i) => (
               <div key={i} style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 8, flexWrap: "wrap" }}>
                 <div style={{ fontSize: 13, color: C.muted, minWidth: 48 }}>Day {i + 1}</div>
-                <select value={d.hours} onChange={e => updateDay(i, "hours", e.target.value)} style={{ background: C.faint, border: `1px solid ${C.border}`, borderRadius: 4, color: C.text, padding: "4px 8px", fontSize: 12, fontFamily: "Georgia, serif" }}>
+                <select value={d.hours} onChange={e => updateDay(i, "hours", e.target.value)} style={{ background: C.faint, border: `1px solid ${C.border}`, borderRadius: 4, color: C.text, padding: "4px 8px", fontSize: 12, fontFamily: "'Archivo', sans-serif" }}>
                   <option value={4}>4 hrs</option>
                   <option value={8}>8 hrs</option>
                 </select>
@@ -963,7 +963,7 @@ const FurnishingsEstimator = () => {
                 <button onClick={() => removeInstallDay(i)} style={{ background: "transparent", border: "none", color: C.dim, cursor: "pointer", fontSize: 16 }}>×</button>
               </div>
             ))}
-            <button onClick={addInstallDay} style={{ background: "transparent", border: `1px solid ${C.border}`, borderRadius: 6, color: C.muted, fontSize: 12, padding: "6px 14px", cursor: "pointer", fontFamily: "Georgia, serif", marginTop: 4 }}>+ Add Day</button>
+            <button onClick={addInstallDay} style={{ background: "transparent", border: `1px solid ${C.border}`, borderRadius: 6, color: C.muted, fontSize: 12, padding: "6px 14px", cursor: "pointer", fontFamily: "'Archivo', sans-serif", marginTop: 4 }}>+ Add Day</button>
           </div>
         )}
       </div>
@@ -988,7 +988,7 @@ const FurnishingsEstimator = () => {
             <span>TOTAL</span><span>{fmt(grandTotal)}</span>
           </div>
           <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-            <button onClick={printEstimate} style={{ background: C.gold, color: C.bg, border: "none", borderRadius: 6, padding: "10px 22px", cursor: "pointer", fontSize: 13, fontFamily: "Georgia, serif" }}>Print / Export PDF</button>
+            <button onClick={printEstimate} style={{ background: C.gold, color: C.bg, border: "none", borderRadius: 6, padding: "10px 22px", cursor: "pointer", fontSize: 13, fontFamily: "'Archivo', sans-serif" }}>Print / Export PDF</button>
             {saveStatus && <span style={{ fontSize: 12, color: C.gold }}>{saveStatus}</span>}
           </div>
         </div>
@@ -1007,7 +1007,7 @@ const KnowledgeBaseTab = ({ knowledge, setKnowledge, kbStatus, saveKnowledge, do
         fontFamily: "monospace", lineHeight: 1.6, resize: "vertical", outline: "none", boxSizing: "border-box"
       }} />
       <div style={{ display: "flex", alignItems: "center", gap: 14, marginTop: 12 }}>
-        <button onClick={saveKnowledge} style={{ background: C.gold, color: C.bg, border: "none", borderRadius: 6, padding: "10px 22px", cursor: "pointer", fontSize: 13, fontFamily: "Georgia, serif" }}>Save Knowledge Base</button>
+        <button onClick={saveKnowledge} style={{ background: C.gold, color: C.bg, border: "none", borderRadius: 6, padding: "10px 22px", cursor: "pointer", fontSize: 13, fontFamily: "'Archivo', sans-serif" }}>Save Knowledge Base</button>
         {kbStatus && <span style={{ color: C.gold, fontSize: 13 }}>{kbStatus}</span>}
       </div>
     </div>
@@ -1027,7 +1027,7 @@ const KnowledgeBaseTab = ({ knowledge, setKnowledge, kbStatus, saveKnowledge, do
                 <div style={{ fontSize: 14, color: C.text }}>{doc.name}</div>
                 <div style={{ fontSize: 11, color: C.dim, marginTop: 3 }}>{doc.content.length.toLocaleString()} characters extracted</div>
               </div>
-              <button onClick={() => deleteDoc(doc.id)} style={{ background: "transparent", border: `1px solid ${C.border}`, borderRadius: 4, color: C.red, fontSize: 11, padding: "4px 12px", cursor: "pointer", fontFamily: "Georgia, serif" }}>Delete</button>
+              <button onClick={() => deleteDoc(doc.id)} style={{ background: "transparent", border: `1px solid ${C.border}`, borderRadius: 4, color: C.red, fontSize: 11, padding: "4px 12px", cursor: "pointer", fontFamily: "'Archivo', sans-serif" }}>Delete</button>
             </div>
           ))}
         </div>
@@ -1175,7 +1175,7 @@ function App({ user, onSignOut }) {
                   <button onClick={() => saveToKnowledge(m.content)} style={{
                     marginTop: 4, background: "transparent", border: `1px solid ${C.border}`,
                     borderRadius: 4, color: C.dim, fontSize: 10, padding: "3px 10px",
-                    cursor: "pointer", letterSpacing: 1, fontFamily: "Georgia, serif"
+                    cursor: "pointer", letterSpacing: 1, fontFamily: "'Archivo', sans-serif"
                   }}>+ SAVE TO KNOWLEDGE BASE</button>
                 )}
               </div>
@@ -1195,18 +1195,18 @@ function App({ user, onSignOut }) {
               rows={isMobile ? 2 : 3} style={{
                 flex: 1, background: C.surface, border: `1px solid ${C.border}`, borderRadius: 8,
                 color: C.text, padding: "11px 13px", fontSize: isMobile ? 16 : 14, resize: "none",
-                outline: "none", fontFamily: "Georgia, serif", lineHeight: 1.5
+                outline: "none", fontFamily: "'Archivo', sans-serif", lineHeight: 1.5
               }} />
             <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
               <button onClick={send} disabled={loading || !input.trim()} style={{
                 background: C.gold, color: C.bg, border: "none", borderRadius: 6,
                 padding: isMobile ? "12px 16px" : "10px 18px", cursor: "pointer",
-                fontSize: 13, fontFamily: "Georgia, serif", opacity: loading || !input.trim() ? 0.5 : 1
+                fontSize: 13, fontFamily: "'Archivo', sans-serif", opacity: loading || !input.trim() ? 0.5 : 1
               }}>Send</button>
               {!isMobile && (
                 <button onClick={() => setMessages([{ role: "assistant", type: "answer", content: "Hi! I'm your Rose & Funk business assistant. Ask me anything about your processes, client situations, or how to handle day-to-day operations — or browse the tabs for references and documents." }])} style={{
                   background: "transparent", color: C.dim, border: `1px solid ${C.border}`,
-                  borderRadius: 6, padding: "8px 18px", cursor: "pointer", fontSize: 11, fontFamily: "Georgia, serif"
+                  borderRadius: 6, padding: "8px 18px", cursor: "pointer", fontSize: 11, fontFamily: "'Archivo', sans-serif"
                 }}>Clear</button>
               )}
             </div>
@@ -1283,7 +1283,7 @@ function App({ user, onSignOut }) {
         <div style={{ padding: "8px 14px", fontSize: 12, color: C.dim }}>Your recent questions will appear here</div>
       ) : searches.map(s => (
         <div key={s.id} style={{ display: "flex", alignItems: "flex-start", gap: 4, padding: "6px 10px", borderBottom: `1px solid ${C.faint}` }}>
-          <button onClick={() => { reaskQuestion(s.question); setShowSearchDrawer(false); }} style={{ flex: 1, background: "transparent", border: "none", color: C.muted, fontSize: 12, textAlign: "left", cursor: "pointer", fontFamily: "Georgia, serif", lineHeight: 1.4, padding: "2px 0" }}>
+          <button onClick={() => { reaskQuestion(s.question); setShowSearchDrawer(false); }} style={{ flex: 1, background: "transparent", border: "none", color: C.muted, fontSize: 12, textAlign: "left", cursor: "pointer", fontFamily: "'Archivo', sans-serif", lineHeight: 1.4, padding: "2px 0" }}>
             {s.question.length > 60 ? s.question.slice(0, 60) + "…" : s.question}
           </button>
           <button onClick={() => deleteSearch(s.id)} style={{ background: "transparent", border: "none", color: C.dim, cursor: "pointer", fontSize: 14, padding: "0 2px", flexShrink: 0 }}>×</button>
@@ -1295,18 +1295,18 @@ function App({ user, onSignOut }) {
   // ── MOBILE LAYOUT ────────────────────────────────────────────────────────
   if (isMobile) {
     return (
-      <div style={{ height: "100dvh", background: C.bg, color: C.text, fontFamily: "Georgia, serif", display: "flex", flexDirection: "column", overflow: "hidden" }}>
+      <div style={{ height: "100dvh", background: C.bg, color: C.text, fontFamily: "'Archivo', sans-serif", display: "flex", flexDirection: "column", overflow: "hidden" }}>
         {/* Mobile header */}
         <div style={{ background: C.surface, borderBottom: `1px solid ${C.border}`, padding: "12px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
             <img src="/logo.png" alt="Rose & Funk" style={{ height: 36, objectFit: "contain" }} />
-            <div style={{ fontSize: 10, color: C.dim, letterSpacing: 2 }}>STUDIO ASSISTANT</div>
+            <div style={{ fontSize: 10, color: C.dim, letterSpacing: 2, fontFamily: "'Playfair Display', serif" }}>STUDIO ASSISTANT</div>
           </div>
           <div style={{ display: "flex", gap: 8 }}>
-            <button onClick={() => setShowSearchDrawer(true)} style={{ background: "transparent", border: `1px solid ${C.border}`, borderRadius: 6, color: C.muted, fontSize: 11, padding: "6px 12px", cursor: "pointer", fontFamily: "Georgia, serif" }}>
+            <button onClick={() => setShowSearchDrawer(true)} style={{ background: "transparent", border: `1px solid ${C.border}`, borderRadius: 6, color: C.muted, fontSize: 11, padding: "6px 12px", cursor: "pointer", fontFamily: "'Archivo', sans-serif" }}>
               History
             </button>
-            <button onClick={onSignOut} style={{ background: "transparent", border: `1px solid ${C.border}`, borderRadius: 6, color: C.dim, fontSize: 11, padding: "6px 12px", cursor: "pointer", fontFamily: "Georgia, serif" }}>
+            <button onClick={onSignOut} style={{ background: "transparent", border: `1px solid ${C.border}`, borderRadius: 6, color: C.dim, fontSize: 11, padding: "6px 12px", cursor: "pointer", fontFamily: "'Archivo', sans-serif" }}>
               Sign Out
             </button>
           </div>
@@ -1340,7 +1340,7 @@ function App({ user, onSignOut }) {
               <button key={t} onClick={() => setTab(t)} style={{
                 flex: 1, background: "none", border: "none", borderTop: `2px solid ${active ? C.gold : "transparent"}`,
                 color: active ? C.gold : C.dim, padding: "12px 2px 14px", cursor: "pointer",
-                fontFamily: "Georgia, serif", display: "flex", flexDirection: "column", alignItems: "center", gap: 2,
+                fontFamily: "'Archivo', sans-serif", display: "flex", flexDirection: "column", alignItems: "center", gap: 2,
                 transition: "color 0.15s"
               }}>
                 <div style={{
@@ -1348,7 +1348,7 @@ function App({ user, onSignOut }) {
                   background: active ? C.gold : "transparent",
                   marginBottom: 4, transition: "background 0.15s"
                 }} />
-                <span style={{ fontSize: 10, letterSpacing: 0.8, fontWeight: active ? "bold" : "normal" }}>{label.toUpperCase()}</span>
+                <span style={{ fontSize: 10, letterSpacing: 0.8, fontWeight: active ? "bold" : "normal", fontFamily: "'Playfair Display', serif" }}>{label.toUpperCase()}</span>
               </button>
             );
           })}
@@ -1359,11 +1359,11 @@ function App({ user, onSignOut }) {
 
   // ── DESKTOP LAYOUT ───────────────────────────────────────────────────────
   return (
-    <div style={{ minHeight: "100vh", background: C.bg, color: C.text, fontFamily: "Georgia, serif", display: "flex", flexDirection: "column" }}>
+    <div style={{ minHeight: "100vh", background: C.bg, color: C.text, fontFamily: "'Archivo', sans-serif", display: "flex", flexDirection: "column" }}>
       <div style={{ background: C.surface, borderBottom: `1px solid ${C.border}`, padding: "18px 24px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
           <img src="/logo.png" alt="Rose & Funk" style={{ height: 48, objectFit: "contain" }} />
-          <div style={{ fontSize: 11, color: C.dim, letterSpacing: 2 }}>STUDIO ASSISTANT</div>
+          <div style={{ fontSize: 11, color: C.dim, letterSpacing: 2, fontFamily: "'Playfair Display', serif" }}>STUDIO ASSISTANT</div>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
@@ -1373,7 +1373,7 @@ function App({ user, onSignOut }) {
                 color: tab === t ? C.bg : C.muted,
                 border: `1px solid ${tab === t ? C.gold : C.border}`,
                 borderRadius: 4, padding: "6px 14px", cursor: "pointer",
-                fontSize: 12, letterSpacing: 1, fontFamily: "Georgia, serif"
+                fontSize: 12, letterSpacing: 1, fontFamily: "'Playfair Display', serif"
               }}>{t.toUpperCase()}</button>
             ))}
           </div>
@@ -1381,7 +1381,7 @@ function App({ user, onSignOut }) {
             <div style={{ fontSize: 11, color: C.dim }}>{user?.email?.split("@")[0]}</div>
             <button onClick={onSignOut} style={{
               background: "transparent", border: `1px solid ${C.border}`, borderRadius: 4,
-              color: C.dim, fontSize: 11, padding: "5px 12px", cursor: "pointer", fontFamily: "Georgia, serif",
+              color: C.dim, fontSize: 11, padding: "5px 12px", cursor: "pointer", fontFamily: "'Archivo', sans-serif",
               letterSpacing: 1
             }}>SIGN OUT</button>
           </div>
@@ -1455,14 +1455,14 @@ const LoginScreen = ({ onLogin }) => {
   const inputStyle = {
     width: "100%", background: "#0f0e0c", border: "1px solid #2a2620",
     borderRadius: 6, color: "#f0ebe3", padding: "12px 14px", fontSize: 15,
-    outline: "none", fontFamily: "Georgia, serif", boxSizing: "border-box",
+    outline: "none", fontFamily: "'Archivo', sans-serif", boxSizing: "border-box",
     marginBottom: 12,
   };
 
   return (
     <div style={{
       minHeight: "100vh", background: "#0f0e0c", display: "flex",
-      alignItems: "center", justifyContent: "center", fontFamily: "Georgia, serif",
+      alignItems: "center", justifyContent: "center", fontFamily: "'Archivo', sans-serif",
       padding: 24,
     }}>
       <div style={{ width: "100%", maxWidth: 380 }}>
@@ -1474,7 +1474,7 @@ const LoginScreen = ({ onLogin }) => {
 
         {/* Card */}
         <div style={{ background: "#1a1814", border: "1px solid #2a2620", borderRadius: 10, padding: "32px 28px" }}>
-          <div style={{ fontSize: 13, letterSpacing: 1, color: "#8a7a65", marginBottom: 24, textAlign: "center" }}>
+          <div style={{ fontSize: 13, letterSpacing: 1, color: "#8a7a65", marginBottom: 24, textAlign: "center", fontFamily: "'Playfair Display', serif" }}>
             {mode === "login" && "SIGN IN"}
             {mode === "signup" && "CREATE ACCOUNT"}
             {mode === "reset" && "RESET PASSWORD"}
@@ -1515,7 +1515,7 @@ const LoginScreen = ({ onLogin }) => {
             style={{
               width: "100%", background: "#c8a96e", color: "#0f0e0c", border: "none",
               borderRadius: 6, padding: "13px", cursor: loading ? "not-allowed" : "pointer",
-              fontSize: 12, letterSpacing: 2, fontFamily: "Georgia, serif",
+              fontSize: 12, letterSpacing: 2, fontFamily: "'Playfair Display', serif",
               opacity: loading ? 0.7 : 1, marginBottom: 20,
             }}
           >
@@ -1526,16 +1526,16 @@ const LoginScreen = ({ onLogin }) => {
           <div style={{ display: "flex", flexDirection: "column", gap: 10, alignItems: "center" }}>
             {mode === "login" && (
               <>
-                <button onClick={() => { setMode("signup"); setError(""); setMessage(""); }} style={{ background: "none", border: "none", color: "#8a7a65", fontSize: 12, cursor: "pointer", fontFamily: "Georgia, serif", textDecoration: "underline" }}>
+                <button onClick={() => { setMode("signup"); setError(""); setMessage(""); }} style={{ background: "none", border: "none", color: "#8a7a65", fontSize: 12, cursor: "pointer", fontFamily: "'Archivo', sans-serif", textDecoration: "underline" }}>
                   Create an account
                 </button>
-                <button onClick={() => { setMode("reset"); setError(""); setMessage(""); }} style={{ background: "none", border: "none", color: "#8a7a65", fontSize: 12, cursor: "pointer", fontFamily: "Georgia, serif", textDecoration: "underline" }}>
+                <button onClick={() => { setMode("reset"); setError(""); setMessage(""); }} style={{ background: "none", border: "none", color: "#8a7a65", fontSize: 12, cursor: "pointer", fontFamily: "'Archivo', sans-serif", textDecoration: "underline" }}>
                   Forgot password?
                 </button>
               </>
             )}
             {mode !== "login" && (
-              <button onClick={() => { setMode("login"); setError(""); setMessage(""); }} style={{ background: "none", border: "none", color: "#8a7a65", fontSize: 12, cursor: "pointer", fontFamily: "Georgia, serif", textDecoration: "underline" }}>
+              <button onClick={() => { setMode("login"); setError(""); setMessage(""); }} style={{ background: "none", border: "none", color: "#8a7a65", fontSize: 12, cursor: "pointer", fontFamily: "'Archivo', sans-serif", textDecoration: "underline" }}>
                 Back to sign in
               </button>
             )}
