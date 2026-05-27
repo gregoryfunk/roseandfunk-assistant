@@ -1567,7 +1567,7 @@ const ScheduleTab = () => {
 };
 
   const copyAll = () => {
-    const text = computed.map(ev => {
+    const text = events.map(ev => {
       const dateStr = fmtDate(ev.date);
       const timeStr = `${fmtTime(ev.startTime)} – ${fmtTime(ev.endTime)}`;
       return `${ev.phase.toUpperCase()} | ${ev.label}\n${dateStr} · ${ev.type === "block" && ev.days > 1 ? `${ev.days} days starting` : ""} ${timeStr}\n${ev.notes || ""}\n`;
@@ -1579,7 +1579,7 @@ const ScheduleTab = () => {
 
   const inputStyle = { background: C.bg, border: `1px solid ${C.border}`, borderRadius: 6, color: C.text, padding: "10px 14px", fontSize: 14, outline: "none", fontFamily: "'Archivo', sans-serif" };
 
-  const phases = computed.length > 0 ? [...new Set(computed.map(e => e.phase))] : [];
+  const phases = events.length > 0 ? [...new Set(events.map(e => e.phase).filter(Boolean))] : [];
 
   return (
     <div style={{ flex: 1, maxWidth: 960, width: "100%", margin: "0 auto", padding: "24px 16px", overflowY: "auto" }}>
@@ -1656,8 +1656,8 @@ const ScheduleTab = () => {
             <div key={phase} style={{ marginBottom: 28 }}>
               <div style={{ fontSize: 10, letterSpacing: 3, color: PHASE_COLORS[phase] || C.gold, marginBottom: 10 }}>{phase.toUpperCase()}</div>
               <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                {computed.filter(e => e.phase === phase).map((ev, evIdx) => {
-                  const globalIdx = computed.indexOf(ev);
+                {events.filter(e => e.phase === phase).map((ev, evIdx) => {
+                  const globalIdx = events.indexOf(ev);
                   const phaseColor = PHASE_COLORS[phase] || C.gold;
                   return (
                     <div key={evIdx} style={{ background: C.surface, border: `1px solid ${ev.type === "meeting" ? phaseColor : C.border}`, borderRadius: 8, overflow: "hidden" }}>
