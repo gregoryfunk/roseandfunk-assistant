@@ -45,14 +45,14 @@ export default async function handler(req, res) {
   }
 
   if (action === "save_search") {
-    const { session_id, question, answer } = req.body;
-    await supabase.from("searches").insert({ session_id, question, answer });
+    const { session_id, question } = req.body;
+    await supabase.from("searches").insert({ session_id, question });
     return res.status(200).json({ success: true });
   }
 
   if (action === "load_searches") {
     const { session_id } = req.body;
-    const { data, error } = await supabase.from("searches").select("id, question, answer").eq("session_id", session_id).order("created_at", { ascending: false }).limit(50);
+    const { data, error } = await supabase.from("searches").select("id, question").eq("session_id", session_id).order("created_at", { ascending: false }).limit(50);
     if (error) return res.status(500).json({ error: error.message });
     return res.status(200).json({ searches: data || [] });
   }
@@ -123,18 +123,17 @@ When giving a normal answer (no clarifying questions needed), respond in this ex
 }
 
 WHEN TO ASK clarifying questions:
-- Any question about dimensions, heights, locations, or placement — always ask which specific item, which room, and what the context is
-- Any question about hardware, fixtures, or specifications — always ask which type and where
 - Question involves a specific client, project, or situation
+- The answer depends on context not provided
 - Pricing, proposals, or contracts — ask about scope, client type, budget
 - Writing emails or documents — ask who it's for, goal, tone
 - Multiple valid answers exist depending on circumstances
-- When in doubt, ask — a targeted answer is always more useful than a comprehensive one
+- When in doubt, ask
 
-WHEN TO ANSWER directly (no clarifying questions):
-- Simple factual questions with one answer and no variables (e.g. "what are our studio hours?", "what is our phone number?")
-- Fixed internal processes with no context needed (e.g. "how do I set up a new client folder?")
-- The person has already provided full specific context in their question
+WHEN TO ANSWER directly:
+- One clear factual answer with no variables
+- Fixed internal process with no client-specific context needed
+- Enough context already provided to give a specific useful answer
 
 KNOWLEDGE BASE:
 ${knowledgeText}
