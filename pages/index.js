@@ -1,4 +1,11 @@
 import { useState, useEffect, useRef } from "react";
+import { createClient } from "@supabase/supabase-js";
+
+const SUPABASE_URL = "https://ppextkmoibqxedfsoloo.supabase.co";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBwZXh0a21vaWJxeGVkZnNvbG9vIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk4MjE4NzUsImV4cCI6MjA5NTM5Nzg3NX0.ZJXZR-rLqX8uD4-6E_THx995jKvU2O-HaXoaOv5fzx4";
+const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+const ALLOWED_DOMAIN = "roseandfunk.com";
+
 
 const TABS = ["Chat", "Estimator", "Furnishings", "Knowledge Base", "Procedures"];
 
@@ -1029,7 +1036,7 @@ const KnowledgeBaseTab = ({ knowledge, setKnowledge, kbStatus, saveKnowledge, do
   </div>
 );
 
-export default function App() {
+function App({ user, onSignOut }) {
   const [tab, setTab] = useState("Chat");
   const [messages, setMessages] = useState([{
     role: "assistant",
@@ -1295,9 +1302,14 @@ export default function App() {
             <img src="/logo.png" alt="Rose & Funk" style={{ height: 36, objectFit: "contain" }} />
             <div style={{ fontSize: 10, color: C.dim, letterSpacing: 2 }}>STUDIO ASSISTANT</div>
           </div>
-          <button onClick={() => setShowSearchDrawer(true)} style={{ background: "transparent", border: `1px solid ${C.border}`, borderRadius: 6, color: C.muted, fontSize: 11, padding: "6px 12px", cursor: "pointer", fontFamily: "Georgia, serif" }}>
-            History
-          </button>
+          <div style={{ display: "flex", gap: 8 }}>
+            <button onClick={() => setShowSearchDrawer(true)} style={{ background: "transparent", border: `1px solid ${C.border}`, borderRadius: 6, color: C.muted, fontSize: 11, padding: "6px 12px", cursor: "pointer", fontFamily: "Georgia, serif" }}>
+              History
+            </button>
+            <button onClick={onSignOut} style={{ background: "transparent", border: `1px solid ${C.border}`, borderRadius: 6, color: C.dim, fontSize: 11, padding: "6px 12px", cursor: "pointer", fontFamily: "Georgia, serif" }}>
+              Sign Out
+            </button>
+          </div>
         </div>
 
         {/* Search drawer overlay */}
@@ -1353,16 +1365,26 @@ export default function App() {
           <img src="/logo.png" alt="Rose & Funk" style={{ height: 48, objectFit: "contain" }} />
           <div style={{ fontSize: 11, color: C.dim, letterSpacing: 2 }}>STUDIO ASSISTANT</div>
         </div>
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-          {TABS.map(t => (
-            <button key={t} onClick={() => setTab(t)} style={{
-              background: tab === t ? C.gold : "transparent",
-              color: tab === t ? C.bg : C.muted,
-              border: `1px solid ${tab === t ? C.gold : C.border}`,
-              borderRadius: 4, padding: "6px 14px", cursor: "pointer",
-              fontSize: 12, letterSpacing: 1, fontFamily: "Georgia, serif"
-            }}>{t.toUpperCase()}</button>
-          ))}
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            {TABS.map(t => (
+              <button key={t} onClick={() => setTab(t)} style={{
+                background: tab === t ? C.gold : "transparent",
+                color: tab === t ? C.bg : C.muted,
+                border: `1px solid ${tab === t ? C.gold : C.border}`,
+                borderRadius: 4, padding: "6px 14px", cursor: "pointer",
+                fontSize: 12, letterSpacing: 1, fontFamily: "Georgia, serif"
+              }}>{t.toUpperCase()}</button>
+            ))}
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 12, marginLeft: 8, paddingLeft: 16, borderLeft: `1px solid ${C.border}` }}>
+            <div style={{ fontSize: 11, color: C.dim }}>{user?.email?.split("@")[0]}</div>
+            <button onClick={onSignOut} style={{
+              background: "transparent", border: `1px solid ${C.border}`, borderRadius: 4,
+              color: C.dim, fontSize: 11, padding: "5px 12px", cursor: "pointer", fontFamily: "Georgia, serif",
+              letterSpacing: 1
+            }}>SIGN OUT</button>
+          </div>
         </div>
       </div>
 
@@ -1376,4 +1398,179 @@ export default function App() {
       </div>
     </div>
   );
+}
+
+// ── Login Screen ─────────────────────────────────────────────────────────────
+
+const LoginScreen = ({ onLogin }) => {
+  const [mode, setMode] = useState("login"); // "login" | "signup" | "reset"
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [message, setMessage] = useState("");
+
+  const validate = () => {
+    if (!email.endsWith("@roseandfunk.com")) {
+      setError("Access is restricted to @roseandfunk.com email addresses.");
+      return false;
+    }
+    if (mode !== "reset" && password.length < 6) {
+      setError("Password must be at least 6 characters.");
+      return false;
+    }
+    return true;
+  };
+
+  const handleSubmit = async () => {
+    setError("");
+    setMessage("");
+    if (!validate()) return;
+    setLoading(true);
+
+    try {
+      if (mode === "login") {
+        const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+        if (error) throw error;
+        onLogin(data.user);
+      } else if (mode === "signup") {
+        const { error } = await supabase.auth.signUp({ email, password });
+        if (error) throw error;
+        setMessage("Check your email to confirm your account, then log in.");
+        setMode("login");
+      } else if (mode === "reset") {
+        const { error } = await supabase.auth.resetPasswordForEmail(email, {
+          redirectTo: window.location.origin,
+        });
+        if (error) throw error;
+        setMessage("Password reset email sent. Check your inbox.");
+        setMode("login");
+      }
+    } catch (err) {
+      setError(err.message || "Something went wrong. Please try again.");
+    }
+    setLoading(false);
+  };
+
+  const inputStyle = {
+    width: "100%", background: "#0f0e0c", border: "1px solid #2a2620",
+    borderRadius: 6, color: "#f0ebe3", padding: "12px 14px", fontSize: 15,
+    outline: "none", fontFamily: "Georgia, serif", boxSizing: "border-box",
+    marginBottom: 12,
+  };
+
+  return (
+    <div style={{
+      minHeight: "100vh", background: "#0f0e0c", display: "flex",
+      alignItems: "center", justifyContent: "center", fontFamily: "Georgia, serif",
+      padding: 24,
+    }}>
+      <div style={{ width: "100%", maxWidth: 380 }}>
+        {/* Logo */}
+        <div style={{ textAlign: "center", marginBottom: 40 }}>
+          <img src="/logo.png" alt="Rose & Funk" style={{ height: 56, objectFit: "contain", marginBottom: 12 }} />
+          <div style={{ fontSize: 10, letterSpacing: 4, color: "#8a7a65" }}>STUDIO ASSISTANT</div>
+        </div>
+
+        {/* Card */}
+        <div style={{ background: "#1a1814", border: "1px solid #2a2620", borderRadius: 10, padding: "32px 28px" }}>
+          <div style={{ fontSize: 13, letterSpacing: 1, color: "#8a7a65", marginBottom: 24, textAlign: "center" }}>
+            {mode === "login" && "SIGN IN"}
+            {mode === "signup" && "CREATE ACCOUNT"}
+            {mode === "reset" && "RESET PASSWORD"}
+          </div>
+
+          <input
+            type="email"
+            placeholder="you@roseandfunk.com"
+            value={email}
+            onChange={e => setEmail(e.target.value)}
+            onKeyDown={e => e.key === "Enter" && handleSubmit()}
+            style={inputStyle}
+            autoComplete="email"
+          />
+
+          {mode !== "reset" && (
+            <input
+              type="password"
+              placeholder="Password"
+              value={password}
+              onChange={e => setPassword(e.target.value)}
+              onKeyDown={e => e.key === "Enter" && handleSubmit()}
+              style={inputStyle}
+              autoComplete={mode === "login" ? "current-password" : "new-password"}
+            />
+          )}
+
+          {error && (
+            <div style={{ fontSize: 12, color: "#c0614a", marginBottom: 14, lineHeight: 1.5 }}>{error}</div>
+          )}
+          {message && (
+            <div style={{ fontSize: 12, color: "#c8a96e", marginBottom: 14, lineHeight: 1.5 }}>{message}</div>
+          )}
+
+          <button
+            onClick={handleSubmit}
+            disabled={loading}
+            style={{
+              width: "100%", background: "#c8a96e", color: "#0f0e0c", border: "none",
+              borderRadius: 6, padding: "13px", cursor: loading ? "not-allowed" : "pointer",
+              fontSize: 12, letterSpacing: 2, fontFamily: "Georgia, serif",
+              opacity: loading ? 0.7 : 1, marginBottom: 20,
+            }}
+          >
+            {loading ? "…" : mode === "login" ? "SIGN IN" : mode === "signup" ? "CREATE ACCOUNT" : "SEND RESET EMAIL"}
+          </button>
+
+          {/* Mode switchers */}
+          <div style={{ display: "flex", flexDirection: "column", gap: 10, alignItems: "center" }}>
+            {mode === "login" && (
+              <>
+                <button onClick={() => { setMode("signup"); setError(""); setMessage(""); }} style={{ background: "none", border: "none", color: "#8a7a65", fontSize: 12, cursor: "pointer", fontFamily: "Georgia, serif", textDecoration: "underline" }}>
+                  Create an account
+                </button>
+                <button onClick={() => { setMode("reset"); setError(""); setMessage(""); }} style={{ background: "none", border: "none", color: "#8a7a65", fontSize: 12, cursor: "pointer", fontFamily: "Georgia, serif", textDecoration: "underline" }}>
+                  Forgot password?
+                </button>
+              </>
+            )}
+            {mode !== "login" && (
+              <button onClick={() => { setMode("login"); setError(""); setMessage(""); }} style={{ background: "none", border: "none", color: "#8a7a65", fontSize: 12, cursor: "pointer", fontFamily: "Georgia, serif", textDecoration: "underline" }}>
+                Back to sign in
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ── Auth Wrapper ──────────────────────────────────────────────────────────────
+
+export default function RootApp() {
+  const [user, setUser] = useState(null);
+  const [authLoading, setAuthLoading] = useState(true);
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setUser(session?.user ?? null);
+      setAuthLoading(false);
+    });
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null);
+    });
+    return () => subscription.unsubscribe();
+  }, []);
+
+  if (authLoading) {
+    return (
+      <div style={{ minHeight: "100vh", background: "#0f0e0c", display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <div style={{ fontSize: 11, letterSpacing: 3, color: "#8a7a65" }}>LOADING…</div>
+      </div>
+    );
+  }
+
+  if (!user) return <LoginScreen onLogin={setUser} />;
+  return <App user={user} onSignOut={() => supabase.auth.signOut()} />;
 }
