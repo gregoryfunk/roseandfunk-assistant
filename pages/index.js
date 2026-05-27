@@ -990,44 +990,46 @@ export default function App() {
           {tab === "Estimator" && <PinGate><Estimator /></PinGate>}
           {tab === "Furnishings" && <PinGate><FurnishingsEstimator /></PinGate>}
 
-          {tab === "Knowledge Base" && <PinGate>
-            <div style={{ flex: 1, maxWidth: 800, width: "100%", margin: "0 auto", padding: "24px 16px", display: "flex", flexDirection: "column", gap: 24, overflowY: "auto" }}>
-              <div>
-                <div style={{ fontSize: 11, letterSpacing: 2, color: C.dim, marginBottom: 10 }}>KNOWLEDGE BASE — saved to database, persists for all team members</div>
-                <textarea value={knowledge} onChange={e => setKnowledge(e.target.value)} rows={16} style={{
-                  width: "100%", background: C.surface, border: `1px solid ${C.border}`,
-                  borderRadius: 8, color: C.text, padding: "14px", fontSize: 13,
-                  fontFamily: "monospace", lineHeight: 1.6, resize: "vertical", outline: "none", boxSizing: "border-box"
-                }} />
-                <div style={{ display: "flex", alignItems: "center", gap: 14, marginTop: 12 }}>
-                  <button onClick={saveKnowledge} style={{ background: C.gold, color: C.bg, border: "none", borderRadius: 6, padding: "10px 22px", cursor: "pointer", fontSize: 13, fontFamily: "Georgia, serif" }}>Save Knowledge Base</button>
-                  {kbStatus && <span style={{ color: C.gold, fontSize: 13 }}>{kbStatus}</span>}
-                </div>
-              </div>
-              <div>
-                <div style={{ fontSize: 11, letterSpacing: 2, color: C.dim, marginBottom: 10 }}>UPLOADED DOCUMENTS — the AI reads these automatically</div>
-                <div onClick={() => fileRef.current?.click()} style={{ border: `2px dashed ${C.border}`, borderRadius: 8, padding: "24px", textAlign: "center", cursor: "pointer", color: C.dim, fontSize: 14, marginBottom: 12 }}>
-                  {uploading ? "Uploading and extracting text…" : "Click to upload a file (PDF, TXT, or CSV)"}
-                  <input ref={fileRef} type="file" accept=".txt,.csv,.md,.pdf" onChange={handleFileUpload} style={{ display: "none" }} />
-                </div>
-                {documents.length === 0 ? (
-                  <div style={{ color: C.dim, fontSize: 13, textAlign: "center" }}>No documents uploaded yet.</div>
-                ) : (
-                  <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                    {documents.map(doc => (
-                      <div key={doc.id} style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 8, padding: "14px 18px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                        <div>
-                          <div style={{ fontSize: 14, color: C.text }}>{doc.name}</div>
-                          <div style={{ fontSize: 11, color: C.dim, marginTop: 3 }}>{doc.content.length.toLocaleString()} characters extracted</div>
-                        </div>
-                        <button onClick={() => deleteDoc(doc.id)} style={{ background: "transparent", border: `1px solid ${C.border}`, borderRadius: 4, color: C.red, fontSize: 11, padding: "4px 12px", cursor: "pointer", fontFamily: "Georgia, serif" }}>Delete</button>
-                      </div>
-                    ))}
+          {tab === "Knowledge Base" && (
+            <PinGate>
+              <div style={{ flex: 1, maxWidth: 800, width: "100%", margin: "0 auto", padding: "24px 16px", display: "flex", flexDirection: "column", gap: 24, overflowY: "auto" }}>
+                <div>
+                  <div style={{ fontSize: 11, letterSpacing: 2, color: C.dim, marginBottom: 10 }}>KNOWLEDGE BASE — saved to database, persists for all team members</div>
+                  <textarea value={knowledge} onChange={e => setKnowledge(e.target.value)} rows={16} style={{
+                    width: "100%", background: C.surface, border: `1px solid ${C.border}`,
+                    borderRadius: 8, color: C.text, padding: "14px", fontSize: 13,
+                    fontFamily: "monospace", lineHeight: 1.6, resize: "vertical", outline: "none", boxSizing: "border-box"
+                  }} />
+                  <div style={{ display: "flex", alignItems: "center", gap: 14, marginTop: 12 }}>
+                    <button onClick={saveKnowledge} style={{ background: C.gold, color: C.bg, border: "none", borderRadius: 6, padding: "10px 22px", cursor: "pointer", fontSize: 13, fontFamily: "Georgia, serif" }}>Save Knowledge Base</button>
+                    {kbStatus && <span style={{ color: C.gold, fontSize: 13 }}>{kbStatus}</span>}
                   </div>
-                )}
+                </div>
+                <div>
+                  <div style={{ fontSize: 11, letterSpacing: 2, color: C.dim, marginBottom: 10 }}>UPLOADED DOCUMENTS — the AI reads these automatically</div>
+                  <div onClick={() => fileRef.current?.click()} style={{ border: `2px dashed ${C.border}`, borderRadius: 8, padding: "24px", textAlign: "center", cursor: "pointer", color: C.dim, fontSize: 14, marginBottom: 12 }}>
+                    {uploading ? "Uploading and extracting text…" : "Click to upload a file (PDF, TXT, or CSV)"}
+                    <input ref={fileRef} type="file" accept=".txt,.csv,.md,.pdf" onChange={handleFileUpload} style={{ display: "none" }} />
+                  </div>
+                  {documents.length === 0 ? (
+                    <div style={{ color: C.dim, fontSize: 13, textAlign: "center" }}>No documents uploaded yet.</div>
+                  ) : (
+                    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                      {documents.map(doc => (
+                        <div key={doc.id} style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 8, padding: "14px 18px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                          <div>
+                            <div style={{ fontSize: 14, color: C.text }}>{doc.name}</div>
+                            <div style={{ fontSize: 11, color: C.dim, marginTop: 3 }}>{doc.content.length.toLocaleString()} characters extracted</div>
+                          </div>
+                          <button onClick={() => deleteDoc(doc.id)} style={{ background: "transparent", border: `1px solid ${C.border}`, borderRadius: 4, color: C.red, fontSize: 11, padding: "4px 12px", cursor: "pointer", fontFamily: "Georgia, serif" }}>Delete</button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
-            </div>
-          </PinGate>}
+            </PinGate>
+          )}
             <div style={{ flex: 1, maxWidth: 800, width: "100%", margin: "0 auto", padding: "24px 16px", display: "flex", flexDirection: "column", gap: 24, overflowY: "auto" }}>
               <div>
                 <div style={{ fontSize: 11, letterSpacing: 2, color: C.dim, marginBottom: 10 }}>KNOWLEDGE BASE — saved to database, persists for all team members</div>
