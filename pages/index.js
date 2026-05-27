@@ -1046,8 +1046,17 @@ export default function App() {
   const [saveMsg, setSaveMsg] = useState("");
   const [searches, setSearches] = useState([]);
   const [sessionId, setSessionId] = useState("");
+  const [showSearchDrawer, setShowSearchDrawer] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
   const bottomRef = useRef(null);
   const fileRef = useRef(null);
+
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 768);
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, []);
 
   useEffect(() => {
     const sid = getSessionId();
@@ -1134,6 +1143,201 @@ export default function App() {
 
   const deleteDoc = async (id) => { await api({ action: "delete_document", id }); setDocuments(docs => docs.filter(d => d.id !== id)); };
 
+  // Shared tab content renderer used by both layouts
+  const tabContent = (
+    <>
+      {tab === "Chat" && (
+        <div style={{ flex: 1, display: "flex", flexDirection: "column", maxWidth: 800, width: "100%", margin: "0 auto", padding: isMobile ? "0 12px" : "0 16px" }}>
+          <div style={{ flex: 1, overflowY: "auto", padding: isMobile ? "16px 0" : "24px 0", display: "flex", flexDirection: "column", gap: 14 }}>
+            {messages.map((m, i) => (
+              <div key={i} style={{ display: "flex", flexDirection: "column", alignItems: m.role === "user" ? "flex-end" : "flex-start" }}>
+                {m.type === "clarifying" && m.clarifyData ? (
+                  <ClarifyingMessage data={m.clarifyData} onAnswer={handleClarifyAnswer} />
+                ) : (
+                  <div style={{
+                    maxWidth: isMobile ? "88%" : "75%", padding: "11px 14px", borderRadius: 8, lineHeight: 1.6,
+                    fontSize: isMobile ? 15 : 14,
+                    background: m.role === "user" ? C.gold : C.surface,
+                    color: m.role === "user" ? C.bg : C.text,
+                    border: m.role === "assistant" ? `1px solid ${C.border}` : "none"
+                  }}>
+                    {(m.content || "").split("\n").map((ln, j) => <div key={j}>{ln || <br />}</div>)}
+                  </div>
+                )}
+                {m.role === "assistant" && m.type === "answer" && i > 0 && (
+                  <button onClick={() => saveToKnowledge(m.content)} style={{
+                    marginTop: 4, background: "transparent", border: `1px solid ${C.border}`,
+                    borderRadius: 4, color: C.dim, fontSize: 10, padding: "3px 10px",
+                    cursor: "pointer", letterSpacing: 1, fontFamily: "Georgia, serif"
+                  }}>+ SAVE TO KNOWLEDGE BASE</button>
+                )}
+              </div>
+            ))}
+            {loading && (
+              <div style={{ display: "flex", justifyContent: "flex-start" }}>
+                <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 8, padding: "12px 16px", color: C.dim, fontSize: 13 }}>Thinking…</div>
+              </div>
+            )}
+            {saveMsg && <div style={{ textAlign: "center", color: C.gold, fontSize: 12 }}>{saveMsg}</div>}
+            <div ref={bottomRef} />
+          </div>
+          <div style={{ padding: isMobile ? "10px 0 16px" : "16px 0 24px", display: "flex", gap: 8, alignItems: "flex-end" }}>
+            <textarea value={input} onChange={e => setInput(e.target.value)}
+              onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } }}
+              placeholder="Ask anything…"
+              rows={isMobile ? 2 : 3} style={{
+                flex: 1, background: C.surface, border: `1px solid ${C.border}`, borderRadius: 8,
+                color: C.text, padding: "11px 13px", fontSize: isMobile ? 16 : 14, resize: "none",
+                outline: "none", fontFamily: "Georgia, serif", lineHeight: 1.5
+              }} />
+            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              <button onClick={send} disabled={loading || !input.trim()} style={{
+                background: C.gold, color: C.bg, border: "none", borderRadius: 6,
+                padding: isMobile ? "12px 16px" : "10px 18px", cursor: "pointer",
+                fontSize: 13, fontFamily: "Georgia, serif", opacity: loading || !input.trim() ? 0.5 : 1
+              }}>Send</button>
+              {!isMobile && (
+                <button onClick={() => setMessages([{ role: "assistant", type: "answer", content: "Hi! I'm your Rose & Funk business assistant. Ask me anything about your processes, client situations, or how to handle day-to-day operations — or browse the tabs for references and documents." }])} style={{
+                  background: "transparent", color: C.dim, border: `1px solid ${C.border}`,
+                  borderRadius: 6, padding: "8px 18px", cursor: "pointer", fontSize: 11, fontFamily: "Georgia, serif"
+                }}>Clear</button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {tab === "Estimator" && <PinGate><Estimator /></PinGate>}
+      {tab === "Furnishings" && <PinGate><FurnishingsEstimator /></PinGate>}
+
+      {tab === "Knowledge Base" && (
+        <PinGate>
+          <KnowledgeBaseTab
+            knowledge={knowledge}
+            setKnowledge={setKnowledge}
+            kbStatus={kbStatus}
+            saveKnowledge={saveKnowledge}
+            documents={documents}
+            uploading={uploading}
+            fileRef={fileRef}
+            handleFileUpload={handleFileUpload}
+            deleteDoc={deleteDoc}
+          />
+        </PinGate>
+      )}
+
+      {tab === "Procedures" && (
+        <div style={{ flex: 1, maxWidth: 900, width: "100%", margin: "0 auto", padding: isMobile ? "16px 12px" : "24px 16px", overflowY: "auto" }}>
+          {PROCEDURES.map((cat, ci) => (
+            <div key={ci} style={{ marginBottom: 28 }}>
+              <div style={{ fontSize: 11, letterSpacing: 3, color: C.gold, marginBottom: 12 }}>{cat.category.toUpperCase()}</div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                {cat.items.map((proc, pi) => {
+                  const key = `${ci}-${pi}`;
+                  const open = expandedProc === key;
+                  return (
+                    <div key={pi} style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 8, overflow: "hidden" }}>
+                      <div onClick={() => setExpandedProc(open ? null : key)} style={{ padding: isMobile ? "14px 14px" : "14px 18px", cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                        <div>
+                          <div style={{ fontSize: isMobile ? 14 : 14, color: C.text }}>{proc.title}</div>
+                          <div style={{ fontSize: 11, color: ownerColor(proc.owner), marginTop: 3, letterSpacing: 1 }}>{proc.owner}</div>
+                        </div>
+                        <div style={{ color: C.dim, fontSize: 18, flexShrink: 0, marginLeft: 8 }}>{open ? "−" : "+"}</div>
+                      </div>
+                      {open && (
+                        <div style={{ borderTop: `1px solid ${C.border}`, padding: isMobile ? "12px 14px" : "14px 18px", display: "flex", flexDirection: "column", gap: 10 }}>
+                          {proc.steps.map((step, si) => (
+                            <div key={si} style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
+                              <div style={{ width: 22, height: 22, borderRadius: "50%", background: C.faint, color: C.dim, fontSize: 11, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginTop: 1 }}>{si + 1}</div>
+                              <div style={{ flex: 1 }}>
+                                <div style={{ fontSize: isMobile ? 14 : 13, color: C.text, lineHeight: 1.5 }}>{step.text}</div>
+                                <div style={{ fontSize: 10, color: ownerColor(step.owner), marginTop: 3, letterSpacing: 1 }}>{step.owner}</div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </>
+  );
+
+  // ── Shared sidebar content ───────────────────────────────────────────────
+  const sidebarContent = (
+    <>
+      <div style={{ padding: "16px 14px 8px", fontSize: 10, letterSpacing: 2, color: C.dim }}>RECENT SEARCHES</div>
+      {searches.length === 0 ? (
+        <div style={{ padding: "8px 14px", fontSize: 12, color: C.dim }}>Your recent questions will appear here</div>
+      ) : searches.map(s => (
+        <div key={s.id} style={{ display: "flex", alignItems: "flex-start", gap: 4, padding: "6px 10px", borderBottom: `1px solid ${C.faint}` }}>
+          <button onClick={() => { reaskQuestion(s.question); setShowSearchDrawer(false); }} style={{ flex: 1, background: "transparent", border: "none", color: C.muted, fontSize: 12, textAlign: "left", cursor: "pointer", fontFamily: "Georgia, serif", lineHeight: 1.4, padding: "2px 0" }}>
+            {s.question.length > 60 ? s.question.slice(0, 60) + "…" : s.question}
+          </button>
+          <button onClick={() => deleteSearch(s.id)} style={{ background: "transparent", border: "none", color: C.dim, cursor: "pointer", fontSize: 14, padding: "0 2px", flexShrink: 0 }}>×</button>
+        </div>
+      ))}
+    </>
+  );
+
+  // ── MOBILE LAYOUT ────────────────────────────────────────────────────────
+  if (isMobile) {
+    const TAB_ICONS = { Chat: "💬", Estimator: "📐", Furnishings: "🛋", "Knowledge Base": "📖", Procedures: "✅" };
+    return (
+      <div style={{ height: "100dvh", background: C.bg, color: C.text, fontFamily: "Georgia, serif", display: "flex", flexDirection: "column", overflow: "hidden" }}>
+        {/* Mobile header */}
+        <div style={{ background: C.surface, borderBottom: `1px solid ${C.border}`, padding: "12px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <img src="/logo.png" alt="Rose & Funk" style={{ height: 36, objectFit: "contain" }} />
+            <div style={{ fontSize: 10, color: C.dim, letterSpacing: 2 }}>STUDIO ASSISTANT</div>
+          </div>
+          <button onClick={() => setShowSearchDrawer(true)} style={{ background: "transparent", border: `1px solid ${C.border}`, borderRadius: 6, color: C.muted, fontSize: 11, padding: "6px 12px", cursor: "pointer", fontFamily: "Georgia, serif" }}>
+            History
+          </button>
+        </div>
+
+        {/* Search drawer overlay */}
+        {showSearchDrawer && (
+          <div style={{ position: "fixed", inset: 0, zIndex: 50, display: "flex" }}>
+            <div style={{ flex: 1, background: "rgba(0,0,0,0.5)" }} onClick={() => setShowSearchDrawer(false)} />
+            <div style={{ width: 280, background: C.surface, borderLeft: `1px solid ${C.border}`, display: "flex", flexDirection: "column", overflowY: "auto" }}>
+              <div style={{ padding: "16px 14px", display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: `1px solid ${C.border}` }}>
+                <div style={{ fontSize: 10, letterSpacing: 2, color: C.dim }}>RECENT SEARCHES</div>
+                <button onClick={() => setShowSearchDrawer(false)} style={{ background: "transparent", border: "none", color: C.dim, fontSize: 20, cursor: "pointer" }}>×</button>
+              </div>
+              {sidebarContent}
+            </div>
+          </div>
+        )}
+
+        {/* Tab content */}
+        <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
+          {tabContent}
+        </div>
+
+        {/* Bottom nav */}
+        <div style={{ background: C.surface, borderTop: `1px solid ${C.border}`, display: "flex", flexShrink: 0 }}>
+          {TABS.map(t => (
+            <button key={t} onClick={() => setTab(t)} style={{
+              flex: 1, background: "none", border: "none", borderTop: `2px solid ${tab === t ? C.gold : "transparent"}`,
+              color: tab === t ? C.gold : C.dim, padding: "10px 4px 12px", cursor: "pointer",
+              fontFamily: "Georgia, serif", display: "flex", flexDirection: "column", alignItems: "center", gap: 3
+            }}>
+              <span style={{ fontSize: 18 }}>{TAB_ICONS[t]}</span>
+              <span style={{ fontSize: 9, letterSpacing: 0.5 }}>{t === "Knowledge Base" ? "KB" : t.toUpperCase()}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  // ── DESKTOP LAYOUT ───────────────────────────────────────────────────────
   return (
     <div style={{ minHeight: "100vh", background: C.bg, color: C.text, fontFamily: "Georgia, serif", display: "flex", flexDirection: "column" }}>
       <div style={{ background: C.surface, borderBottom: `1px solid ${C.border}`, padding: "18px 24px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
@@ -1156,136 +1360,10 @@ export default function App() {
 
       <div style={{ flex: 1, display: "flex", overflow: "hidden" }}>
         <div style={{ width: 220, background: C.surface, borderRight: `1px solid ${C.border}`, display: "flex", flexDirection: "column", overflowY: "auto", flexShrink: 0 }}>
-          <div style={{ padding: "16px 14px 8px", fontSize: 10, letterSpacing: 2, color: C.dim }}>RECENT SEARCHES</div>
-          {searches.length === 0 ? (
-            <div style={{ padding: "8px 14px", fontSize: 12, color: C.dim }}>Your recent questions will appear here</div>
-          ) : searches.map(s => (
-            <div key={s.id} style={{ display: "flex", alignItems: "flex-start", gap: 4, padding: "6px 10px", borderBottom: `1px solid ${C.faint}` }}>
-              <button onClick={() => reaskQuestion(s.question)} style={{ flex: 1, background: "transparent", border: "none", color: C.muted, fontSize: 12, textAlign: "left", cursor: "pointer", fontFamily: "Georgia, serif", lineHeight: 1.4, padding: "2px 0" }}>
-                {s.question.length > 60 ? s.question.slice(0, 60) + "…" : s.question}
-              </button>
-              <button onClick={() => deleteSearch(s.id)} style={{ background: "transparent", border: "none", color: C.dim, cursor: "pointer", fontSize: 14, padding: "0 2px", flexShrink: 0 }}>×</button>
-            </div>
-          ))}
+          {sidebarContent}
         </div>
-
         <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
-          {tab === "Chat" && (
-            <div style={{ flex: 1, display: "flex", flexDirection: "column", maxWidth: 800, width: "100%", margin: "0 auto", padding: "0 16px" }}>
-              <div style={{ flex: 1, overflowY: "auto", padding: "24px 0", display: "flex", flexDirection: "column", gap: 16 }}>
-                {messages.map((m, i) => (
-                  <div key={i} style={{ display: "flex", flexDirection: "column", alignItems: m.role === "user" ? "flex-end" : "flex-start" }}>
-                    {m.type === "clarifying" && m.clarifyData ? (
-                      <ClarifyingMessage data={m.clarifyData} onAnswer={handleClarifyAnswer} />
-                    ) : (
-                      <div style={{
-                        maxWidth: "75%", padding: "12px 16px", borderRadius: 8, lineHeight: 1.6, fontSize: 14,
-                        background: m.role === "user" ? C.gold : C.surface,
-                        color: m.role === "user" ? C.bg : C.text,
-                        border: m.role === "assistant" ? `1px solid ${C.border}` : "none"
-                      }}>
-                        {(m.content || "").split("\n").map((ln, j) => <div key={j}>{ln || <br />}</div>)}
-                      </div>
-                    )}
-                    {m.role === "assistant" && m.type === "answer" && i > 0 && (
-                      <button onClick={() => saveToKnowledge(m.content)} style={{
-                        marginTop: 4, background: "transparent", border: `1px solid ${C.border}`,
-                        borderRadius: 4, color: C.dim, fontSize: 10, padding: "3px 10px",
-                        cursor: "pointer", letterSpacing: 1, fontFamily: "Georgia, serif"
-                      }}>+ SAVE TO KNOWLEDGE BASE</button>
-                    )}
-                  </div>
-                ))}
-                {loading && (
-                  <div style={{ display: "flex", justifyContent: "flex-start" }}>
-                    <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 8, padding: "12px 16px", color: C.dim, fontSize: 13 }}>Thinking…</div>
-                  </div>
-                )}
-                {saveMsg && <div style={{ textAlign: "center", color: C.gold, fontSize: 12 }}>{saveMsg}</div>}
-                <div ref={bottomRef} />
-              </div>
-              <div style={{ padding: "16px 0 24px", display: "flex", gap: 10, alignItems: "flex-end" }}>
-                <textarea value={input} onChange={e => setInput(e.target.value)}
-                  onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } }}
-                  placeholder="Ask anything about Rose & Funk operations, clients, or procedures…"
-                  rows={3} style={{
-                    flex: 1, background: C.surface, border: `1px solid ${C.border}`, borderRadius: 8,
-                    color: C.text, padding: "12px 14px", fontSize: 14, resize: "none",
-                    outline: "none", fontFamily: "Georgia, serif", lineHeight: 1.5
-                  }} />
-                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                  <button onClick={send} disabled={loading || !input.trim()} style={{
-                    background: C.gold, color: C.bg, border: "none", borderRadius: 6,
-                    padding: "10px 18px", cursor: "pointer", fontSize: 13, fontFamily: "Georgia, serif",
-                    opacity: loading || !input.trim() ? 0.5 : 1
-                  }}>Send</button>
-                  <button onClick={() => setMessages([{ role: "assistant", type: "answer", content: "Hi! I'm your Rose & Funk business assistant. Ask me anything about your processes, client situations, or how to handle day-to-day operations — or browse the tabs for references and documents." }])} style={{
-                    background: "transparent", color: C.dim, border: `1px solid ${C.border}`,
-                    borderRadius: 6, padding: "8px 18px", cursor: "pointer", fontSize: 11, fontFamily: "Georgia, serif"
-                  }}>Clear</button>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {tab === "Estimator" && <PinGate><Estimator /></PinGate>}
-          {tab === "Furnishings" && <PinGate><FurnishingsEstimator /></PinGate>}
-
-          {tab === "Knowledge Base" && (
-            <PinGate>
-              <KnowledgeBaseTab
-                knowledge={knowledge}
-                setKnowledge={setKnowledge}
-                kbStatus={kbStatus}
-                saveKnowledge={saveKnowledge}
-                documents={documents}
-                uploading={uploading}
-                fileRef={fileRef}
-                handleFileUpload={handleFileUpload}
-                deleteDoc={deleteDoc}
-              />
-            </PinGate>
-          )}
-
-          {tab === "Procedures" && (
-            <div style={{ flex: 1, maxWidth: 900, width: "100%", margin: "0 auto", padding: "24px 16px", overflowY: "auto" }}>
-              {PROCEDURES.map((cat, ci) => (
-                <div key={ci} style={{ marginBottom: 32 }}>
-                  <div style={{ fontSize: 11, letterSpacing: 3, color: C.gold, marginBottom: 14 }}>{cat.category.toUpperCase()}</div>
-                  <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                    {cat.items.map((proc, pi) => {
-                      const key = `${ci}-${pi}`;
-                      const open = expandedProc === key;
-                      return (
-                        <div key={pi} style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 8, overflow: "hidden" }}>
-                          <div onClick={() => setExpandedProc(open ? null : key)} style={{ padding: "14px 18px", cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                            <div>
-                              <div style={{ fontSize: 14, color: C.text }}>{proc.title}</div>
-                              <div style={{ fontSize: 11, color: ownerColor(proc.owner), marginTop: 3, letterSpacing: 1 }}>{proc.owner}</div>
-                            </div>
-                            <div style={{ color: C.dim, fontSize: 18 }}>{open ? "−" : "+"}</div>
-                          </div>
-                          {open && (
-                            <div style={{ borderTop: `1px solid ${C.border}`, padding: "14px 18px", display: "flex", flexDirection: "column", gap: 10 }}>
-                              {proc.steps.map((step, si) => (
-                                <div key={si} style={{ display: "flex", gap: 14, alignItems: "flex-start" }}>
-                                  <div style={{ width: 22, height: 22, borderRadius: "50%", background: C.faint, color: C.dim, fontSize: 11, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginTop: 1 }}>{si + 1}</div>
-                                  <div style={{ flex: 1 }}>
-                                    <div style={{ fontSize: 13, color: C.text, lineHeight: 1.5 }}>{step.text}</div>
-                                    <div style={{ fontSize: 10, color: ownerColor(step.owner), marginTop: 3, letterSpacing: 1 }}>{step.owner}</div>
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
+          {tabContent}
         </div>
       </div>
     </div>
