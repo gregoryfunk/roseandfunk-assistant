@@ -783,6 +783,42 @@ const FurnishingsEstimator = () => {
   const [installDays, setInstallDays] = useState([]);
   const [showInstall, setShowInstall] = useState(false);
   const [saveStatus, setSaveStatus] = useState("");
+  const [savedEstimates, setSavedEstimates] = useState([]);
+  const [showSaved, setShowSaved] = useState(false);
+
+  useEffect(() => { loadSavedEstimates(); }, []);
+
+  const loadSavedEstimates = async () => {
+    const { data } = await supabase.from("furnishing_estimates").select("*").order("created_at", { ascending: false });
+    if (data) setSavedEstimates(data);
+  };
+
+  const saveEstimate = async () => {
+    if (!clientName.trim()) { setSaveStatus("Please enter a client name first."); setTimeout(() => setSaveStatus(""), 2500); return; }
+    if (rooms.length === 0) { setSaveStatus("Please add at least one room."); setTimeout(() => setSaveStatus(""), 2500); return; }
+    await supabase.from("furnishing_estimates").insert([{
+      client_name: clientName,
+      rooms: rooms,
+      install_days: installDays,
+      total: grandTotal,
+    }]);
+    setSaveStatus("Estimate saved!");
+    setTimeout(() => setSaveStatus(""), 2500);
+    loadSavedEstimates();
+  };
+
+  const loadEstimate = (est) => {
+    setClientName(est.client_name);
+    setRooms(est.rooms || []);
+    setInstallDays(est.install_days || []);
+    setShowInstall((est.install_days || []).length > 0);
+    setShowSaved(false);
+  };
+
+  const deleteEstimate = async (id) => {
+    await supabase.from("furnishing_estimates").delete().eq("id", id);
+    setSavedEstimates(e => e.filter(x => x.id !== id));
+  };
 
   const addClass = (room) => {
     if (rooms.find(r => r.id === room.id)) return;
@@ -866,13 +902,35 @@ const FurnishingsEstimator = () => {
 
   return (
     <div style={{ flex: 1, maxWidth: 900, width: "100%", margin: "0 auto", padding: "24px 16px", overflowY: "auto" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 20 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 20, flexWrap: "wrap", gap: 12 }}>
         <div>
           <div style={{ fontSize: 11, letterSpacing: 2, color: C.dim }}>FURNISHINGS ESTIMATOR</div>
           <div style={{ fontSize: 12, color: C.dim, marginTop: 4 }}>Anchor Fee {fmt(ANCHOR_FEE)} · Major/Secondary/Styling pricing</div>
         </div>
-        <button onClick={() => { setRooms([]); setClientName(""); setInstallDays([]); setShowInstall(false); }} style={{ background: "transparent", border: `1px solid ${C.border}`, borderRadius: 6, color: C.dim, fontSize: 12, padding: "6px 14px", cursor: "pointer", fontFamily: "'Archivo', sans-serif" }}>Reset</button>
+        <div style={{ display: "flex", gap: 8 }}>
+          <button onClick={() => setShowSaved(!showSaved)} style={{ background: "transparent", border: `1px solid ${C.border}`, borderRadius: 6, color: C.muted, fontSize: 12, padding: "6px 14px", cursor: "pointer", fontFamily: "'Archivo', sans-serif" }}>Saved Estimates ({savedEstimates.length})</button>
+          <button onClick={() => { setRooms([]); setClientName(""); setInstallDays([]); setShowInstall(false); }} style={{ background: "transparent", border: `1px solid ${C.border}`, borderRadius: 6, color: C.dim, fontSize: 12, padding: "6px 14px", cursor: "pointer", fontFamily: "'Archivo', sans-serif" }}>Reset</button>
+        </div>
       </div>
+
+      {showSaved && (
+        <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 8, padding: "16px", marginBottom: 20 }}>
+          <div style={{ fontSize: 11, letterSpacing: 2, color: C.dim, marginBottom: 12 }}>SAVED ESTIMATES</div>
+          {savedEstimates.length === 0 ? <div style={{ color: C.dim, fontSize: 13 }}>No saved estimates yet.</div> :
+            savedEstimates.map(est => (
+              <div key={est.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 0", borderBottom: `1px solid ${C.faint}` }}>
+                <div>
+                  <div style={{ fontSize: 14, color: C.text }}>{est.client_name}</div>
+                  <div style={{ fontSize: 11, color: C.dim, marginTop: 2 }}>{fmt(est.total)} · {new Date(est.created_at).toLocaleDateString("en-CA")}</div>
+                </div>
+                <div style={{ display: "flex", gap: 8 }}>
+                  <button onClick={() => loadEstimate(est)} style={{ background: C.gold, color: C.bg, border: "none", borderRadius: 4, fontSize: 11, padding: "4px 12px", cursor: "pointer", fontFamily: "'Archivo', sans-serif" }}>Load</button>
+                  <button onClick={() => deleteEstimate(est.id)} style={{ background: "transparent", border: `1px solid ${C.border}`, borderRadius: 4, color: C.red, fontSize: 11, padding: "4px 12px", cursor: "pointer", fontFamily: "'Archivo', sans-serif" }}>Delete</button>
+                </div>
+              </div>
+            ))}
+        </div>
+      )}
 
       <div style={{ marginBottom: 20 }}>
         <input value={clientName} onChange={e => setClientName(e.target.value)} placeholder="Client name…" style={{
@@ -1037,7 +1095,8 @@ const FurnishingsEstimator = () => {
             </div>
 
             <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-              <button onClick={printEstimate} style={{ background: C.gold, color: C.bg, border: "none", borderRadius: 6, padding: "10px 22px", cursor: "pointer", fontSize: 13, fontFamily: "'Archivo', sans-serif" }}>Print / Export PDF</button>
+              <button onClick={saveEstimate} style={{ background: C.gold, color: C.bg, border: "none", borderRadius: 6, padding: "10px 22px", cursor: "pointer", fontSize: 13, fontFamily: "'Archivo', sans-serif" }}>Save Estimate</button>
+              <button onClick={printEstimate} style={{ background: "transparent", border: `1px solid ${C.border}`, borderRadius: 6, color: C.muted, padding: "10px 22px", cursor: "pointer", fontSize: 13, fontFamily: "'Archivo', sans-serif" }}>Print / Export PDF</button>
               {saveStatus && <span style={{ fontSize: 12, color: C.gold }}>{saveStatus}</span>}
             </div>
           </div>
