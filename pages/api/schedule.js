@@ -232,9 +232,70 @@ Return the complete JSON schedule.`;
     }
   }
 
+
+  if (action === "revise_schedule") {
+    try {
+      const currentSchedule = JSON.stringify(events || [], null, 2);
+      const prompt = `Current schedule for ${clientName} (${projectType}):
+${currentSchedule}
+
+Jenny's revision request: "${revision}"
+
+Apply the requested changes to the schedule. Keep all events that aren't affected.
+Maintain all scheduling rules (no Mondays, correct phase sequence, presentation times).
+Return the complete updated schedule JSON plus a brief plain-English message explaining what you changed.
+
+Respond with JSON:
+{
+  "message": "Brief description of what changed",
+  "schedule": [ ...complete updated schedule... ]
+}`;
+
+      const response = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-api-key": process.env.ANTHROPIC_API_KEY,
+          "anthropic-version": "2023-06-01",
+        },
+        body: JSON.stringify({
+          model: "claude-sonnet-4-5",
+          max_tokens: 4000,
+          system: SCHEDULE_RULES,
+          messages: [{ role: "user", content: prompt }],
+        }),
+      });
+
+      const data = await response.json();
+      if (data.error) throw new Error(data.error.message);
+
+      const text = data.content[0].text;
+      let result;
+      try {
+        const clean = text.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
+        result = JSON.parse(clean);
+      } catch (e) {
+        const match = text.match(/\{[\s\S]*\}/);
+        if (match) result = JSON.parse(match[0]);
+        else throw new Error("Could not parse revised schedule");
+      }
+
+      return res.status(200).json({
+        success: true,
+        schedule: result.schedule || result,
+        message: result.message || "Schedule updated.",
+      });
+    } catch (err) {
+      console.error("Revise error:", err);
+      return res.status(500).json({ error: err.message });
+    }
+  }
+
   return res.status(400).json({ error: "Unknown action" });
 }
 
 export const config = {
   maxDuration: 60,
 };
+
+// Note: revise_schedule action added above export config
