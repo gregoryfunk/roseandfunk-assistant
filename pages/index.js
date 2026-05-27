@@ -80,7 +80,7 @@ const FURN_ROOMS = [
 
 const CLASS_FACTORS = { Major: 1.0, Secondary: 0.5, Styling: 0.3 };
 const MAJOR_DISCOUNT = [1.0, 0.8, 0.6, 0.5];
-const ANCHOR_FEE = 10500;
+const ANCHOR_FEE = 6500;
 
 const fmt = (n) => n.toLocaleString("en-CA", { style: "currency", currency: "CAD", maximumFractionDigits: 0 });
 
