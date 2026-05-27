@@ -139,11 +139,57 @@ const getSessionId = () => {
   return id;
 };
 
+// Renders a clarifying question block with clickable options
+const ClarifyingMessage = ({ data, onAnswer }) => {
+  const [selections, setSelections] = useState({});
+
+  const select = (qi, option) => {
+    setSelections(s => ({ ...s, [qi]: option }));
+  };
+
+  const allAnswered = data.questions.every((_, i) => selections[i]);
+
+  const submit = () => {
+    const answer = data.questions.map((q, i) => `${q.question}: ${selections[i]}`).join("\n");
+    onAnswer(answer);
+  };
+
+  return (
+    <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 8, padding: "16px 18px", maxWidth: "80%" }}>
+      {data.intro && <div style={{ fontSize: 14, color: C.text, marginBottom: 14, lineHeight: 1.5 }}>{data.intro}</div>}
+      {data.questions.map((q, qi) => (
+        <div key={qi} style={{ marginBottom: 16 }}>
+          <div style={{ fontSize: 13, color: C.muted, marginBottom: 8, lineHeight: 1.4 }}>{q.question}</div>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+            {q.options.map((opt, oi) => (
+              <button key={oi} onClick={() => select(qi, opt)} style={{
+                background: selections[qi] === opt ? C.gold : C.faint,
+                color: selections[qi] === opt ? C.bg : C.muted,
+                border: `1px solid ${selections[qi] === opt ? C.gold : C.border}`,
+                borderRadius: 20, padding: "5px 14px", cursor: "pointer",
+                fontSize: 12, fontFamily: "Georgia, serif", transition: "all 0.15s"
+              }}>{opt}</button>
+            ))}
+          </div>
+        </div>
+      ))}
+      {allAnswered && (
+        <button onClick={submit} style={{
+          background: C.gold, color: C.bg, border: "none", borderRadius: 6,
+          padding: "8px 20px", cursor: "pointer", fontSize: 13,
+          fontFamily: "Georgia, serif", marginTop: 4
+        }}>Get Answer →</button>
+      )}
+    </div>
+  );
+};
+
 export default function App() {
   const [tab, setTab] = useState("Chat");
   const [messages, setMessages] = useState([{
     role: "assistant",
-    content: "Hi! I'm your Rose & Funk business assistant. Ask me anything about your processes, client situations, or how to handle day-to-day operations — or browse the tabs for references and documents."
+    content: "Hi! I'm your Rose & Funk business assistant. Ask me anything about your processes, client situations, or how to handle day-to-day operations — or browse the tabs for references and documents.",
+    type: "answer"
   }]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -170,29 +216,45 @@ export default function App() {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, loading]);
 
+  const sendMessages = async (msgs) => {
+    setLoading(true);
+    try {
+      const data = await api({ messages: msgs.filter(m => m.type !== "clarifying") });
+      const newMsg = {
+        role: "assistant",
+        type: data.type || "answer",
+        content: data.type === "clarifying" ? null : (data.text || "Sorry, no response."),
+        clarifyData: data.type === "clarifying" ? data : null
+      };
+      setMessages([...msgs, newMsg]);
+    } catch {
+      setMessages([...msgs, { role: "assistant", type: "answer", content: "Something went wrong. Please try again." }]);
+    }
+    setLoading(false);
+  };
+
   const send = async () => {
     if (!input.trim() || loading) return;
     const question = input.trim();
-    const userMsg = { role: "user", content: question };
+    const userMsg = { role: "user", content: question, type: "answer" };
     const updated = [...messages, userMsg];
     setMessages(updated);
     setInput("");
-    setLoading(true);
 
-    // Save search
     api({ action: "save_search", session_id: sessionId, question }).then(() => {
       api({ action: "load_searches", session_id: sessionId }).then(d => {
         if (d.searches) setSearches(d.searches);
       });
     });
 
-    try {
-      const data = await api({ messages: updated });
-      setMessages([...updated, { role: "assistant", content: data.reply || "Sorry, no response." }]);
-    } catch {
-      setMessages([...updated, { role: "assistant", content: "Something went wrong. Please try again." }]);
-    }
-    setLoading(false);
+    await sendMessages(updated);
+  };
+
+  const handleClarifyAnswer = async (answer) => {
+    const userMsg = { role: "user", content: answer, type: "answer" };
+    const updated = [...messages, userMsg];
+    setMessages(updated);
+    await sendMessages(updated);
   };
 
   const reaskQuestion = (question) => {
@@ -249,7 +311,6 @@ export default function App() {
 
   return (
     <div style={{ minHeight: "100vh", background: C.bg, color: C.text, fontFamily: "Georgia, serif", display: "flex", flexDirection: "column" }}>
-      {/* Header */}
       <div style={{ background: C.surface, borderBottom: `1px solid ${C.border}`, padding: "18px 24px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
           <img src="/logo.png" alt="Rose & Funk" style={{ height: 48, objectFit: "contain" }} />
@@ -268,9 +329,7 @@ export default function App() {
         </div>
       </div>
 
-      {/* Main layout */}
       <div style={{ flex: 1, display: "flex", overflow: "hidden" }}>
-
         {/* Sidebar */}
         <div style={{ width: 220, background: C.surface, borderRight: `1px solid ${C.border}`, display: "flex", flexDirection: "column", overflowY: "auto", flexShrink: 0 }}>
           <div style={{ padding: "16px 14px 8px", fontSize: 10, letterSpacing: 2, color: C.dim }}>RECENT SEARCHES</div>
@@ -295,7 +354,7 @@ export default function App() {
           )}
         </div>
 
-        {/* Content area */}
+        {/* Content */}
         <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
 
           {tab === "Chat" && (
@@ -303,15 +362,19 @@ export default function App() {
               <div style={{ flex: 1, overflowY: "auto", padding: "24px 0", display: "flex", flexDirection: "column", gap: 16 }}>
                 {messages.map((m, i) => (
                   <div key={i} style={{ display: "flex", flexDirection: "column", alignItems: m.role === "user" ? "flex-end" : "flex-start" }}>
-                    <div style={{
-                      maxWidth: "75%", padding: "12px 16px", borderRadius: 8, lineHeight: 1.6, fontSize: 14,
-                      background: m.role === "user" ? C.gold : C.surface,
-                      color: m.role === "user" ? C.bg : C.text,
-                      border: m.role === "assistant" ? `1px solid ${C.border}` : "none"
-                    }}>
-                      {m.content.split("\n").map((ln, j) => <div key={j}>{ln || <br />}</div>)}
-                    </div>
-                    {m.role === "assistant" && i > 0 && (
+                    {m.type === "clarifying" && m.clarifyData ? (
+                      <ClarifyingMessage data={m.clarifyData} onAnswer={handleClarifyAnswer} />
+                    ) : (
+                      <div style={{
+                        maxWidth: "75%", padding: "12px 16px", borderRadius: 8, lineHeight: 1.6, fontSize: 14,
+                        background: m.role === "user" ? C.gold : C.surface,
+                        color: m.role === "user" ? C.bg : C.text,
+                        border: m.role === "assistant" ? `1px solid ${C.border}` : "none"
+                      }}>
+                        {(m.content || "").split("\n").map((ln, j) => <div key={j}>{ln || <br />}</div>)}
+                      </div>
+                    )}
+                    {m.role === "assistant" && m.type === "answer" && i > 0 && (
                       <button onClick={() => saveToKnowledge(m.content)} style={{
                         marginTop: 4, background: "transparent", border: `1px solid ${C.border}`,
                         borderRadius: 4, color: C.dim, fontSize: 10, padding: "3px 10px",
@@ -343,7 +406,7 @@ export default function App() {
                     padding: "10px 18px", cursor: "pointer", fontSize: 13, fontFamily: "Georgia, serif",
                     opacity: loading || !input.trim() ? 0.5 : 1
                   }}>Send</button>
-                  <button onClick={() => setMessages([{ role: "assistant", content: "Hi! I'm your Rose & Funk business assistant. Ask me anything about your processes, client situations, or how to handle day-to-day operations — or browse the tabs for references and documents." }])} style={{
+                  <button onClick={() => setMessages([{ role: "assistant", type: "answer", content: "Hi! I'm your Rose & Funk business assistant. Ask me anything about your processes, client situations, or how to handle day-to-day operations — or browse the tabs for references and documents." }])} style={{
                     background: "transparent", color: C.dim, border: `1px solid ${C.border}`,
                     borderRadius: 6, padding: "8px 18px", cursor: "pointer", fontSize: 11, fontFamily: "Georgia, serif"
                   }}>Clear</button>
@@ -442,7 +505,6 @@ export default function App() {
               ))}
             </div>
           )}
-
         </div>
       </div>
     </div>
