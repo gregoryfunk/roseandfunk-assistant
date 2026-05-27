@@ -63,6 +63,26 @@ export default async function handler(req, res) {
     return res.status(200).json({ success: true });
   }
 
+  if (action === "save_estimate") {
+    const { client_name, rooms, total } = req.body;
+    const { error } = await supabase.from("estimates").insert({ client_name, rooms, total });
+    if (error) return res.status(500).json({ error: error.message });
+    return res.status(200).json({ success: true });
+  }
+
+  if (action === "load_estimates") {
+    const { data, error } = await supabase.from("estimates").select("*").order("created_at", { ascending: false });
+    if (error) return res.status(500).json({ error: error.message });
+    return res.status(200).json({ estimates: data || [] });
+  }
+
+  if (action === "delete_estimate") {
+    const { id } = req.body;
+    const { error } = await supabase.from("estimates").delete().eq("id", id);
+    if (error) return res.status(500).json({ error: error.message });
+    return res.status(200).json({ success: true });
+  }
+
   if (!messages || !Array.isArray(messages)) {
     return res.status(400).json({ error: "Invalid request" });
   }
@@ -80,7 +100,6 @@ Always be clear about where your answer is coming from:
 - If the answer comes from the Rose & Funk knowledge base or uploaded documents, start with: "Based on your Rose & Funk documents..." or "According to your studio standards..."
 - If the answer is NOT in the knowledge base and you're drawing from general knowledge, clearly say: "This isn't in your Rose & Funk knowledge base yet, but generally speaking..." or "I don't see this in your studio documents, but as a general guideline..."
 - If you have partial information from the knowledge base but are filling in gaps, say: "Your documents mention X, and more generally..."
-This helps the team know when to trust the answer as a Rose & Funk standard vs. general industry knowledge.
 
 CLARIFYING QUESTIONS — VERY IMPORTANT:
 When a question is vague, about a specific situation, involves a client, or where the best answer depends on context — ask clarifying questions before answering.
@@ -141,7 +160,6 @@ ${docsText ? `UPLOADED DOCUMENTS:\n${docsText}` : ""}`;
     if (data.error) return res.status(200).json({ type: "answer", text: `Error: ${data.error.message}` });
 
     const raw = data.content?.[0]?.text || "";
-
     try {
       const cleaned = raw.replace(/```json|```/g, "").trim();
       const parsed = JSON.parse(cleaned);
