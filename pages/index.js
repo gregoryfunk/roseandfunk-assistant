@@ -17,8 +17,8 @@ const ROOMS = [
   { id: "e", label: "E - Dining Room", cost: 2000 },
   { id: "f", label: "F - Powder Room", cost: 1750 },
   { id: "g", label: "G - Office", cost: 2500 },
-  { id: "h", label: "H - Kitchen", cost: 7500 },
-  { id: "i", label: "I - Prep Kitchen", cost: 3500 },
+  { id: "h", label: "H - Kitchen", cost: 5000 },
+  { id: "i", label: "I - Kitchen Island", cost: 3500 },
   { id: "j", label: "J - Pantry", cost: 2500 },
   { id: "k", label: "K - Eating Nook", cost: 1250 },
   { id: "l", label: "L - Family/Living", cost: 3000 },
@@ -29,9 +29,9 @@ const ROOMS = [
   { id: "q", label: "Q - Primary Ensuite", cost: 3500 },
   { id: "r", label: "R - Primary WIC", cost: 2500 },
   { id: "s", label: "S - Bedroom", cost: 1750 },
-  { id: "t", label: "T - Bedroom (basic)", cost: 250 },
-  { id: "u", label: "U - Bathroom (3 pc)", cost: 2500 },
-  { id: "v", label: "V - Bathroom (Jack & Jill)", cost: 2500 },
+  { id: "t", label: "T - Bedroom (small)", cost: 250 },
+  { id: "u", label: "U - Bathroom", cost: 2500 },
+  { id: "v", label: "V - Bathroom (small)", cost: 2500 },
   { id: "w", label: "W - Media Room", cost: 2500 },
   { id: "x", label: "X - Bar", cost: 2500 },
   { id: "y", label: "Y - Gym", cost: 1500 },
@@ -51,7 +51,6 @@ const PHASES = [
   { label: "Phase 5", pct: 0.125 },
 ];
 
-// Furnishing rooms — same list, different base prices and class system
 const FURN_ROOMS = [
   { id: "foyer", label: "Foyer", basePrice: 2000 },
   { id: "living", label: "Living Room", basePrice: 3750 },
@@ -68,7 +67,7 @@ const FURN_ROOMS = [
   { id: "bedroom_sm", label: "Bedroom (small)", basePrice: 800 },
   { id: "powder", label: "Powder Room", basePrice: 1000 },
   { id: "bathroom", label: "Bathroom", basePrice: 800 },
-  { id: "mudroom", label: "Mudroom", basePrice: 1400 },
+  { id: "mudroom", label: "Mudroom", basePrice: 800 },
   { id: "laundry", label: "Laundry", basePrice: 800 },
   { id: "media", label: "Media Room", basePrice: 2750 },
   { id: "bar", label: "Bar", basePrice: 2000 },
@@ -77,7 +76,6 @@ const FURN_ROOMS = [
   { id: "outdoor_sm", label: "Outdoor (small)", basePrice: 1200 },
   { id: "suite", label: "Suite", basePrice: 2500 },
   { id: "staircase", label: "Staircase", basePrice: 1000 },
-  { id: "media_room", label: "Media Room", basePrice: 2750 },
 ];
 
 const CLASS_FACTORS = { Major: 1.0, Secondary: 0.5, Styling: 0.3 };
@@ -88,102 +86,219 @@ const fmt = (n) => n.toLocaleString("en-CA", { style: "currency", currency: "CAD
 
 const PROCEDURES = [
   {
-    category: "Client Management",
+    category: "Onboarding",
     items: [
       {
-        title: "New Client Inquiry", owner: "JENNY",
+        title: "Client Intake & Discovery", owner: "ADMIN + PRINCIPAL",
         steps: [
-          { text: "Respond to inquiry within 24 business hours", owner: "JENNY" },
-          { text: "Send introductory email with studio overview and next steps", owner: "JENNY" },
-          { text: "Schedule discovery call with Gregory", owner: "JENNY" },
-          { text: "Conduct discovery call — assess scope, budget, timeline, fit", owner: "GREGORY" },
-          { text: "If proceeding: prepare and send proposal within 5 business days", owner: "GREGORY" },
-          { text: "Follow up on proposal if no response after 5 days", owner: "JENNY" },
+          { text: "Client completes Intake Form on website. If client contacts directly via call or email, send them the Keap link.", owner: "CLIENT" },
+          { text: "Immediately send client follow-up email to book Discovery Call via Keap (automatic).", owner: "AUTOMATIC" },
+          { text: "Client books Discovery Call using Keap link. Timeblock these to certain days and times.", owner: "CLIENT" },
+          { text: "Immediately send Discovery Call booking confirmation. Request project info, inspiration, or plans if not included in intake form (automatic).", owner: "AUTOMATIC" },
+          { text: "Send Discovery Call reminder 24 hours prior via Keap (automatic).", owner: "AUTOMATIC" },
+          { text: "DISCOVERY CALL (15–30 min) via Zoom or Google Meet. Determine services they're interested in, gather project scope details, and book a consultation if needed.", owner: "PRINCIPAL" },
+          { text: "Send client follow-up email next day (automatic).", owner: "AUTOMATIC" },
+          { text: "Within 3 days of Discovery Call, send link to schedule Proposal Review via Keap.", owner: "AUTOMATIC" },
+          { text: "Client books Proposal Review via Keap link.", owner: "CLIENT" },
+          { text: "Immediately send Proposal Booking Confirmation Email (automatic).", owner: "AUTOMATIC" },
+          { text: "Send reminder for Proposal Review 24 hours prior. Include proposal and general scope of work for client to review before meeting (automatic).", owner: "AUTOMATIC" },
         ]
       },
       {
-        title: "Onboarding a New Client", owner: "JENNY + GREGORY",
+        title: "Proposal Review & Contract", owner: "PRINCIPAL + ADMIN",
         steps: [
-          { text: "Send contract for e-signature", owner: "JENNY" },
-          { text: "Collect signed contract and design deposit before any work begins", owner: "JENNY" },
-          { text: "Set up client folder (digital + physical if needed)", owner: "JENNY" },
-          { text: "Schedule site survey / measurement day", owner: "GREGORY" },
-          { text: "Introduce client to their lead designer if not Gregory", owner: "GREGORY" },
-          { text: "Send welcome email confirming kickoff and what to expect", owner: "JENNY" },
+          { text: "PROPOSAL REVIEW (60–90 min). Gather details needed to provide a proposal. Book a time to review the SOW/proposal on a virtual meeting a week out.", owner: "PRINCIPAL" },
+          { text: "Send follow-up email to client after Proposal Review the next day.", owner: "ADMIN" },
+          { text: "Client emails confirmation of wanting design services. If client doesn't sign, follow up after 5–7 days. Recommend putting an expiration date on proposals.", owner: "CLIENT" },
+          { text: "Immediately following confirmation, send Welcome Book and next steps (contract signatures, scheduling, invoices). Outline scope + custom design fee proposal. Put an expiration date (7–14 days).", owner: "ADMIN" },
+          { text: "Same day as Welcome Book, send DocuSign.", owner: "ADMIN" },
+          { text: "Receive signed contract. Set up project in Harvest, QB, and Drive.", owner: "ADMIN" },
+          { text: "Immediately send follow-up email thanking client for signed contract. Let them know retainer invoice is going out today. Ask availability for meetings and request floor plans for initial drawing setup.", owner: "ADMIN" },
+          { text: "Send Retainer Invoice upon receipt of signed contract.", owner: "ADMIN" },
+          { text: "Within 24 hours of signed contract, schedule project in calendar following Calendar Process. Send client their first initial meeting date.", owner: "ADMIN" },
+          { text: "Within 3 days of signed contract, send client proposed meeting dates with payment schedule. List all meeting dates and payment schedule.", owner: "ADMIN" },
+          { text: "Within 3 days of signed contract, send invoice for Phase 1.", owner: "ADMIN" },
+          { text: "Initial drawing set up (3 days).", owner: "DESIGNER" },
+          { text: "Send client reminder email 24 hours before Initial Meeting via Keap (automatic).", owner: "AUTOMATIC" },
         ]
       },
       {
-        title: "Handling a Client Complaint", owner: "GREGORY",
+        title: "Initial Meeting", owner: "PRINCIPAL + DESIGNER",
         steps: [
-          { text: "Acknowledge the issue promptly — same day if possible", owner: "GREGORY" },
-          { text: "Listen fully before responding — do not get defensive", owner: "GREGORY" },
-          { text: "Assess: studio error, vendor error, or expectation mismatch?", owner: "GREGORY" },
-          { text: "If studio error: apologize clearly and offer resolution", owner: "GREGORY" },
-          { text: "If vendor error: communicate on client's behalf to resolve", owner: "GREGORY" },
-          { text: "Follow up in writing to confirm resolution", owner: "JENNY" },
+          { text: "INITIAL MEETING 1.1 (60–90 min). Review welcome book, questionnaire, scope, budget, and inspiration images.", owner: "PRINCIPAL, DESIGNER, CLIENT" },
+          { text: "Send Follow Up Email with Recap and outline of next steps 1–2 days after Initial Meeting.", owner: "DESIGNER" },
+          { text: "Set up Builder Phone Call meeting. Engage with builder, build connection, ask for budget number and main trades.", owner: "ADMIN" },
+          { text: "BUILDER PHONE CALL (30 min).", owner: "PRINCIPAL, DESIGNER" },
+          { text: "Send Follow Up Email with Recap and outline of next steps 1–2 days after builder call.", owner: "DESIGNER" },
         ]
-      }
+      },
     ]
   },
   {
-    category: "Design Process",
+    category: "Concept Phase",
     items: [
       {
-        title: "Concept Development", owner: "DESIGNER + GREGORY",
+        title: "Aesthetic Direction", owner: "PRINCIPAL + DESIGNER",
         steps: [
-          { text: "Review client intake notes, inspiration images, and brief", owner: "DESIGNER" },
-          { text: "Develop 1–2 concept directions (mood board + palette)", owner: "DESIGNER" },
-          { text: "Internal review with Gregory before client presentation", owner: "GREGORY" },
-          { text: "Refine based on Gregory's feedback", owner: "DESIGNER" },
-          { text: "Prepare presentation deck", owner: "DESIGNER" },
+          { text: "Send Phase 2 Invoice 15 days before Phase 2 design begins.", owner: "ADMIN" },
+          { text: "Create Aesthetic Direction Boards with team (2 days). Can be inspiration images, a few specific selections, floorplan/layout, etc.", owner: "PRINCIPAL, DESIGNER" },
+          { text: "Send reminder for Aesthetic Direction Meeting 24 hours before with meeting outline via Keap (automatic).", owner: "AUTOMATIC" },
+          { text: "AESTHETIC DIRECTION MEETING (60–90 min).", owner: "PRINCIPAL, DESIGNER, CLIENT" },
+          { text: "Send boards and meeting notes 1–2 days after Aesthetic Direction Meeting.", owner: "DESIGNER" },
+          { text: "Send Follow Up Email with outline of next steps including meeting notes.", owner: "ADMIN" },
         ]
       },
       {
-        title: "Client Design Presentation", owner: "GREGORY",
+        title: "Appliance & Plumbing Meeting", owner: "PRINCIPAL + DESIGNER",
         steps: [
-          { text: "Schedule in-person or video presentation", owner: "JENNY" },
-          { text: "Walk through concept, mood board, and key selections", owner: "GREGORY" },
-          { text: "Allow client time to respond — don't rush", owner: "GREGORY" },
-          { text: "Note all feedback in writing during or immediately after", owner: "DESIGNER" },
-          { text: "Confirm next steps and revision timeline before ending meeting", owner: "GREGORY" },
-          { text: "Send follow-up email summarizing decisions made", owner: "JENNY" },
+          { text: "Send reminder email for Appliance and Plumbing Meeting 24 hours before. Review design concept as a team to ensure all details are ready to present. Principal designer sign off (automatic).", owner: "AUTOMATIC" },
+          { text: "APPLIANCE & PLUMBING MEETING (4 hours).", owner: "PRINCIPAL, DESIGNER, CLIENT" },
+          { text: "Send Follow Up Email with Recap and outline of next steps 1–2 days after meeting. Include meeting notes.", owner: "DESIGNER" },
+          { text: "Send out Appliance Package for Feedback once received from rep. Don't send until we have pricing and specs.", owner: "DESIGNER" },
+          { text: "Send Phase 3 Invoice 15 days before Phase 3 design begins.", owner: "ADMIN" },
         ]
       },
       {
-        title: "Procurement & Ordering", owner: "JENNY + DESIGNER",
+        title: "Concept Elevation & Material Meeting", owner: "PRINCIPAL + DESIGNER",
         steps: [
-          { text: "Confirm final selections are client-approved in writing", owner: "GREGORY" },
-          { text: "Collect procurement deposit if not already received", owner: "JENNY" },
-          { text: "Place all orders and log in procurement tracker", owner: "JENNY" },
-          { text: "Send order confirmations and lead times to client", owner: "JENNY" },
-          { text: "Track deliveries and flag any delays immediately", owner: "JENNY" },
-          { text: "Coordinate delivery and installation schedule", owner: "JENNY" },
+          { text: "Create Material Concept Boards with team (4–5 weeks for full design process).", owner: "PRINCIPAL, DESIGNER" },
+          { text: "Complete Material Boards (2–3 days).", owner: "DESIGNER" },
+          { text: "Lighting Concept Boards (1 day).", owner: "DESIGNER" },
+          { text: "Sketch Elevations (1 day).", owner: "PRINCIPAL, DESIGNER" },
+          { text: "Elevations in AutoCad — add to concept board (2 days).", owner: "DESIGNER" },
+          { text: "Send reminder email for Concept Elevation & Material Meeting 24 hours before (automatic).", owner: "AUTOMATIC" },
+          { text: "Prepare all presentation details for client meeting: design presentation, renderings, drawings, samples, and budgets.", owner: "DESIGNER" },
+          { text: "CONCEPT ELEVATION & MATERIAL MEETING (4 hours). Review design selections with client.", owner: "PRINCIPAL, DESIGNER, CLIENT" },
+          { text: "Send Phase 4 Invoice 15 days before Phase 4 design begins.", owner: "ADMIN" },
+          { text: "Same day, send recap of meeting with Design Presentation and Sign-off. Ask for feedback within 3 days. Clearly state how many rounds of revisions client will receive. 72 hours for additional feedback.", owner: "DESIGNER" },
+          { text: "Client submits feedback and notes within 3 days.", owner: "CLIENT" },
+          { text: "Within 24 hours of receiving feedback, send Feedback Received Email stating revisions will be made.", owner: "DESIGNER" },
         ]
-      }
+      },
     ]
   },
   {
-    category: "Operations",
+    category: "Documentation Phase",
     items: [
       {
-        title: "Weekly Team Check-In", owner: "GREGORY",
+        title: "Documentation & Revisions", owner: "DESIGNER",
         steps: [
-          { text: "Review active project statuses", owner: "ALL" },
-          { text: "Flag any client issues or urgent items", owner: "ALL" },
-          { text: "Review upcoming deadlines and deliverables", owner: "ALL" },
-          { text: "Assign or reassign tasks as needed", owner: "GREGORY" },
-          { text: "Confirm everyone's priorities for the week", owner: "GREGORY" },
+          { text: "Documentation (3 days): Update design boards, drawings, pricing, and all other documentation.", owner: "DESIGNER" },
+          { text: "Concept Revisions & Concept Material Boards (2–3 days). Double check feasibility and budget before completing revisions.", owner: "DESIGNER" },
+          { text: "Concept Exterior: Complete Mood Boards.", owner: "DESIGNER" },
         ]
-      }
+      },
+      {
+        title: "Material Confirmation Meeting", owner: "PRINCIPAL + DESIGNER",
+        steps: [
+          { text: "Send Email Reminder for Material Confirmation Meeting 1 week before and outline what to expect. If 2 rounds of revisions in scope, note that any revisions after this point should be billed hourly (automatic).", owner: "ADMIN, AUTOMATIC" },
+          { text: "MATERIAL CONFIRMATION MEETING (3 hours). Request written approval if possible.", owner: "PRINCIPAL, DESIGNER, CLIENT" },
+          { text: "Send Follow Up Email with Recap 1–2 days after. Attach Design Presentation, meeting notes, and next steps. Ask for feedback within 3 days. 72 hours for additional feedback. NO SIGN OFF at this stage.", owner: "DESIGNER" },
+          { text: "Final Board Revisions.", owner: "DESIGNER" },
+          { text: "Within 1–2 weeks of Final Design Approval, send final material boards with sign-off. Send via Design Software or deliver Construction Binder (digital presentation with selections, elevations, renderings, and finish schedules).", owner: "DESIGNER" },
+          { text: "Clients sign off within 3 business days.", owner: "CLIENT" },
+          { text: "Receive Client Sign-off.", owner: "ADMIN" },
+          { text: "Immediately send Follow Up Email confirming sign-off received.", owner: "ADMIN" },
+          { text: "Send off for 3D Renderings (1–2 weeks): kitchen, great room, primary ensuite.", owner: "DESIGNER" },
+        ]
+      },
     ]
-  }
+  },
+  {
+    category: "Construction Documentation",
+    items: [
+      {
+        title: "Drawings & Final Package", owner: "DESIGNER + ADMIN",
+        steps: [
+          { text: "Complete Remaining Elevations (3–4 days).", owner: "DESIGNER" },
+          { text: "Drawing Details (1 day). Designer and Procurement review all specifications, quantities, etc. to ensure all details are correct before ordering.", owner: "DESIGNER" },
+          { text: "Dimensioning & Noting Elevations (1–2 days).", owner: "DESIGNER" },
+          { text: "Plan Layouts (4–5 days).", owner: "DESIGNER" },
+          { text: "Send client reminder email for Final Review Meeting (automatic).", owner: "ADMIN, AUTOMATIC" },
+          { text: "FINAL REVIEW MEETING (3 hours).", owner: "PRINCIPAL, DESIGNER, CLIENT" },
+          { text: "Send follow-up with recap of meeting notes and next steps. Do NOT send drawings or specs.", owner: "DESIGNER" },
+          { text: "Send Phase 5 Invoice 15 days before Phase 5 begins.", owner: "ADMIN" },
+          { text: "Make client adjustments (1 day).", owner: "DESIGNER" },
+          { text: "Within 72 hours of making adjustments, send drawings package to client. NOTE: Preliminary Drawings — in title block under revisions.", owner: "DESIGNER" },
+          { text: "Send client sign-off for final drawing package along with drawings package.", owner: "ADMIN" },
+          { text: "Receive client sign-off.", owner: "ADMIN" },
+          { text: "Send drawings to print: For Gather — print spec package double-sided. Drawing sheets print on 24\" x 36\", staple, colour, 20lbs.", owner: "DESIGNER" },
+          { text: "Review Drawings & Gather (1 day).", owner: "DESIGNER" },
+          { text: "Complete All Final Edits (3 days).", owner: "DESIGNER" },
+          { text: "Send Final Package to Clients & Builders.", owner: "DESIGNER" },
+          { text: "Send client email explaining next steps: billing for construction phase, what to anticipate, how to get the most value from design package, and getting builder pricing started. Make it look like it's from Gregory.", owner: "ADMIN" },
+          { text: "Next week, send next steps email for Construction Site Visits — Framing Site Visit. Inform Jenny to set up call re: Construction Phase (automatic).", owner: "AUTOMATIC, ADMIN" },
+        ]
+      },
+      {
+        title: "Site Visits", owner: "PRINCIPAL + DESIGNER",
+        steps: [
+          { text: "FRAMING SITE VISIT (1.5 hours).", owner: "PRINCIPAL, DESIGNER, CLIENT" },
+          { text: "Send meeting notes to client and builder.", owner: "DESIGNER" },
+          { text: "1 week post framing site meeting, send email to client and builder re: when to book Pre-Drywall Site Visit.", owner: "ADMIN" },
+          { text: "Send client reminder email to schedule Pre-Drywall Site Meeting (4 weeks out, automatic).", owner: "AUTOMATIC" },
+          { text: "PRE-DRYWALL SITE VISIT (1.5 hours).", owner: "PRINCIPAL, DESIGNER, CLIENT" },
+          { text: "Send meeting notes to client and builder 1–2 days after Pre-Drywall Site Visit.", owner: "DESIGNER" },
+          { text: "Send client email to schedule Post-Drywall Site Meeting.", owner: "ADMIN" },
+          { text: "Send client reminder email 24 hours prior to Post-Drywall Site Visit (automatic).", owner: "AUTOMATIC" },
+          { text: "POST-DRYWALL SITE VISIT (1.5 hours).", owner: "PRINCIPAL, DESIGNER, CLIENT" },
+          { text: "Send meeting notes to client and builder 1–2 days after Post-Drywall Site Visit.", owner: "DESIGNER" },
+        ]
+      },
+      {
+        title: "Cabinetry & Finishing Review", owner: "PRINCIPAL + DESIGNER",
+        steps: [
+          { text: "Send client email to confirm cabinet maker and timeline.", owner: "DESIGNER" },
+          { text: "CABINETRY REVIEW (2–6 hours). Designer and Procurement review all specifications, quantities, etc. to ensure all details are correct before ordering.", owner: "PRINCIPAL, DESIGNER" },
+          { text: "Cabinetry Review communication 1–2 weeks.", owner: "DESIGNER" },
+          { text: "Send revisions to Cabinet Supplier, Builder, and Client.", owner: "DESIGNER" },
+          { text: "Send client email to schedule Finishing Review Site Meeting.", owner: "ADMIN" },
+          { text: "Send client reminder email 24 hours before Finishing Review Site Meeting.", owner: "ADMIN" },
+          { text: "FINISHING REVIEW SITE MEETING (1.5 hours).", owner: "PRINCIPAL, DESIGNER, CLIENT" },
+          { text: "Send meeting notes to client and builder 1–2 days after Finishing Review.", owner: "DESIGNER" },
+        ]
+      },
+    ]
+  },
+  {
+    category: "Wrap-Up & Install",
+    items: [
+      {
+        title: "Install Preparation", owner: "ADMIN + DESIGNER",
+        steps: [
+          { text: "30–60 days prior to install, email client to schedule install. Confirm completion date with contractor and schedule install date. Confirm spaces will be cleaned and cleared beforehand.", owner: "ADMIN" },
+          { text: "30–60 days prior to install, schedule delivery date and handyman/art installer.", owner: "ADMIN" },
+          { text: "30–60 days prior to install, schedule photographer and stylist if photographing project.", owner: "ADMIN" },
+          { text: "2 weeks prior to install, prepare for install: print room labels, floor plans, product lists. Have linens laundered, light bulbs and pillow inserts ready, schedule lunch delivery, get cash for tips, pack install day kit, order florals.", owner: "DESIGNER, ADMIN" },
+          { text: "1 week prior to install, photoshoot prep: confirm shot list, styling items, headshot poses and outfits, weather, etc.", owner: "DESIGNER" },
+        ]
+      },
+      {
+        title: "Install & Photoshoot", owner: "DESIGNER + PRINCIPAL",
+        steps: [
+          { text: "INSTALL (1–3+ days). Deliver, install, place, and style all items.", owner: "DESIGNER, PRINCIPAL" },
+          { text: "PHOTOSHOOT after install (1–2+ days).", owner: "DESIGNER, PRINCIPAL" },
+          { text: "CLIENT FINAL WALK-THROUGH (1–2 hours). Walk through all spaces with client. Create list of outstanding tasks. Mostly for construction projects.", owner: "PRINCIPAL, DESIGNER, CLIENT" },
+          { text: "Day of walk-through: create list of outstanding tasks to be completed ideally within 30–90 days.", owner: "DESIGNER, PRINCIPAL" },
+        ]
+      },
+      {
+        title: "Project Close-Out", owner: "ADMIN + DESIGNER",
+        steps: [
+          { text: "Within 30–90 days of install, complete all outstanding tasks. Send weekly emails to client with status updates on any outstanding items.", owner: "DESIGNER" },
+          { text: "Within 30–90 days of install, send Project Completion Email to client with feedback request. Send client gift if possible.", owner: "ADMIN" },
+        ]
+      },
+    ]
+  },
 ];
 
 const ownerColor = (owner = "") => {
-  if (owner.includes("GREGORY")) return C.gold;
-  if (owner === "JENNY") return "#6a9ab0";
-  if (owner === "ALL") return "#7a9a7a";
+  if (owner.includes("GREGORY") || owner.includes("PRINCIPAL")) return C.gold;
+  if (owner === "JENNY" || owner === "ADMIN") return "#6a9ab0";
+  if (owner === "ALL" || owner === "AUTOMATIC") return "#7a9a7a";
   if (owner === "DESIGNER") return "#a0896a";
+  if (owner === "CLIENT") return "#9a7aaa";
   return "#8a8a8a";
 };
 
@@ -221,12 +336,10 @@ const PinGate = ({ children }) => {
   const [entered, setEntered] = useState(false);
   const [pin, setPin] = useState("");
   const [error, setError] = useState("");
-
   const submit = () => {
     if (pin === "1199") { setEntered(true); setError(""); }
     else { setError("Incorrect PIN. Please try again."); setPin(""); }
   };
-
   if (entered) return children;
   return (
     <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center" }}>
@@ -337,7 +450,6 @@ const Estimator = () => {
         td { padding: 8px 0; font-size: 13px; border-bottom: 1px solid #f0ebe3; }
         td:last-child { text-align: right; }
         .total-row td { font-size: 16px; font-weight: bold; border-top: 2px solid #1a1814; border-bottom: none; padding-top: 12px; }
-        .phases { margin-top: 32px; }
         .phase { display: flex; justify-content: space-between; padding: 10px 14px; background: #f8f6f3; margin-bottom: 6px; border-radius: 4px; }
         .footer { margin-top: 48px; font-size: 11px; color: #8a7a65; letter-spacing: 1px; }
       </style></head><body>
@@ -350,10 +462,8 @@ const Estimator = () => {
         ${selectedRooms.map(r => `<tr><td>${r.label}</td><td>${qtys[r.id]}</td><td>${fmt(r.cost)}</td><td>${fmt(r.cost * qtys[r.id])}</td></tr>`).join("")}
         <tr class="total-row"><td colspan="3">TOTAL</td><td>${fmt(total)}</td></tr>
       </table>
-      <div class="phases">
-        <div style="font-size:11px;letter-spacing:2px;color:#8a7a65;margin-bottom:12px;">PAYMENT SCHEDULE</div>
-        ${PHASES.map(p => `<div class="phase"><div>${p.label} (${(p.pct * 100).toFixed(1)}%)</div><div><strong>${fmt(total * p.pct)}</strong></div></div>`).join("")}
-      </div>
+      <div style="font-size:11px;letter-spacing:2px;color:#8a7a65;margin-bottom:12px;">PAYMENT SCHEDULE</div>
+      ${PHASES.map(p => `<div class="phase"><div>${p.label} (${(p.pct * 100).toFixed(1)}%)</div><div><strong>${fmt(total * p.pct)}</strong></div></div>`).join("")}
       <div class="footer">ROSE AND FUNK INTERIORS INC. · www.roseandfunk.com · 604.513.9118</div>
       </body></html>`;
     const win = window.open("", "_blank");
@@ -428,14 +538,12 @@ const Estimator = () => {
           <div style={{ marginBottom: 16 }}>
             {selectedRooms.map(r => (
               <div key={r.id} style={{ display: "flex", justifyContent: "space-between", fontSize: 13, color: C.muted, padding: "4px 0", borderBottom: `1px solid ${C.faint}` }}>
-                <span>{r.label} × {qtys[r.id]}</span>
-                <span>{fmt(r.cost * qtys[r.id])}</span>
+                <span>{r.label} × {qtys[r.id]}</span><span>{fmt(r.cost * qtys[r.id])}</span>
               </div>
             ))}
           </div>
           <div style={{ display: "flex", justifyContent: "space-between", fontSize: 16, color: C.text, marginBottom: 20, paddingTop: 8 }}>
-            <span>TOTAL</span>
-            <span style={{ color: C.gold }}>{fmt(total)}</span>
+            <span>TOTAL</span><span style={{ color: C.gold }}>{fmt(total)}</span>
           </div>
           <div style={{ fontSize: 11, letterSpacing: 2, color: C.dim, marginBottom: 12 }}>PAYMENT SCHEDULE</div>
           <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 20 }}>
@@ -462,7 +570,7 @@ const Estimator = () => {
 
 const FurnishingsEstimator = () => {
   const [clientName, setClientName] = useState("");
-  const [rooms, setRooms] = useState([]); // { id, label, basePrice, class }
+  const [rooms, setRooms] = useState([]);
   const [installDays, setInstallDays] = useState([]);
   const [showInstall, setShowInstall] = useState(false);
   const [saveStatus, setSaveStatus] = useState("");
@@ -471,28 +579,15 @@ const FurnishingsEstimator = () => {
     if (rooms.find(r => r.id === room.id)) return;
     setRooms(r => [...r, { ...room, roomClass: "Major" }]);
   };
-
-  const setRoomClass = (id, roomClass) => {
-    setRooms(r => r.map(rm => rm.id === id ? { ...rm, roomClass } : rm));
-  };
-
+  const setRoomClass = (id, roomClass) => setRooms(r => r.map(rm => rm.id === id ? { ...rm, roomClass } : rm));
   const removeRoom = (id) => setRooms(r => r.filter(rm => rm.id !== id));
-
-  // Compute major discount ladder
-  const getRoomPrice = (room, idx) => {
-    const factor = CLASS_FACTORS[room.roomClass] || 1;
-    if (room.roomClass === "Major") {
-      const discountIdx = Math.min(idx, MAJOR_DISCOUNT.length - 1);
-      return room.basePrice * MAJOR_DISCOUNT[discountIdx];
-    }
-    return room.basePrice * factor;
-  };
 
   let majorCount = 0;
   const roomsWithPrices = rooms.map(r => {
     let price;
     if (r.roomClass === "Major") {
-      price = getRoomPrice(r, majorCount);
+      const discountIdx = Math.min(majorCount, MAJOR_DISCOUNT.length - 1);
+      price = r.basePrice * MAJOR_DISCOUNT[discountIdx];
       majorCount++;
     } else {
       price = r.basePrice * CLASS_FACTORS[r.roomClass];
@@ -502,15 +597,10 @@ const FurnishingsEstimator = () => {
 
   const roomsTotal = roomsWithPrices.reduce((s, r) => s + r.price, 0);
 
-  // Install calc
   const addInstallDay = () => setInstallDays(d => [...d, { hours: 8, admin: 0, designers: 0 }]);
   const removeInstallDay = (i) => setInstallDays(d => d.filter((_, idx) => idx !== i));
   const updateDay = (i, key, val) => setInstallDays(d => d.map((day, idx) => idx === i ? { ...day, [key]: Math.max(0, parseInt(val) || 0) } : day));
-
-  const installTotal = installDays.reduce((sum, d) => {
-    return sum + (250 * d.hours) + (125 * d.admin * d.hours) + (175 * d.designers * d.hours);
-  }, 0);
-
+  const installTotal = installDays.reduce((sum, d) => sum + (250 * d.hours) + (125 * d.admin * d.hours) + (175 * d.designers * d.hours), 0);
   const grandTotal = ANCHOR_FEE + roomsTotal + (showInstall ? installTotal : 0);
 
   const printEstimate = () => {
@@ -525,10 +615,9 @@ const FurnishingsEstimator = () => {
         th { text-align: left; font-size: 11px; letter-spacing: 2px; color: #8a7a65; padding: 8px 0; border-bottom: 1px solid #d4cdc4; }
         td { padding: 8px 0; font-size: 13px; border-bottom: 1px solid #f0ebe3; }
         td:last-child { text-align: right; }
-        .total-row td { font-size: 16px; font-weight: bold; border-top: 2px solid #1a1814; border-bottom: none; padding-top: 12px; }
-        .section { margin-top: 24px; font-size: 11px; letter-spacing: 2px; color: #8a7a65; margin-bottom: 8px; }
         .fee-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #f0ebe3; font-size: 13px; }
         .grand { display: flex; justify-content: space-between; padding: 14px 0; font-size: 18px; font-weight: bold; border-top: 2px solid #1a1814; margin-top: 8px; }
+        .section { margin-top: 24px; font-size: 11px; letter-spacing: 2px; color: #8a7a65; margin-bottom: 8px; }
         .footer { margin-top: 48px; font-size: 11px; color: #8a7a65; letter-spacing: 1px; }
       </style></head><body>
       <h1>ROSE & FUNK</h1>
@@ -546,7 +635,6 @@ const FurnishingsEstimator = () => {
       ${showInstall && installTotal > 0 ? `
         <div class="section">INSTALL & STYLING</div>
         ${installDays.map((d, i) => `<div class="fee-row"><span>Day ${i + 1} — ${d.hours}hrs · ${d.admin} admin · ${d.designers} designers</span><span>${fmt((250 * d.hours) + (125 * d.admin * d.hours) + (175 * d.designers * d.hours))}</span></div>`).join("")}
-        <div class="fee-row"><span style="color:#8a7a65;font-size:12px;">Install Total</span><span>${fmt(installTotal)}</span></div>
       ` : ""}
       <div class="grand"><span>TOTAL FURNISHING FEE</span><span>${fmt(grandTotal)}</span></div>
       <div class="footer">ROSE AND FUNK INTERIORS INC. · www.roseandfunk.com · 604.513.9118</div>
@@ -575,7 +663,6 @@ const FurnishingsEstimator = () => {
         }} />
       </div>
 
-      {/* Anchor fee display */}
       <div style={{ background: C.surface, border: `1px solid ${C.gold}`, borderRadius: 8, padding: "14px 18px", marginBottom: 20, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <div>
           <div style={{ fontSize: 13, color: C.text }}>Anchor Fee — Project Activation</div>
@@ -584,7 +671,6 @@ const FurnishingsEstimator = () => {
         <div style={{ fontSize: 16, color: C.gold }}>{fmt(ANCHOR_FEE)}</div>
       </div>
 
-      {/* Room picker */}
       <div style={{ fontSize: 11, letterSpacing: 2, color: C.dim, marginBottom: 10 }}>ADD ROOMS</div>
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6, marginBottom: 24 }}>
         {FURN_ROOMS.filter(r => !rooms.find(x => x.id === r.id)).map(r => (
@@ -598,44 +684,42 @@ const FurnishingsEstimator = () => {
         ))}
       </div>
 
-      {/* Selected rooms */}
       {rooms.length > 0 && (
         <div style={{ marginBottom: 24 }}>
           <div style={{ fontSize: 11, letterSpacing: 2, color: C.dim, marginBottom: 10 }}>SELECTED ROOMS</div>
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-            {roomsWithPrices.map(r => (
-              <div key={r.id} style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 8, padding: "12px 16px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: 13, color: C.text }}>{r.label}</div>
-                  {r.roomClass === "Major" && (
-                    <div style={{ fontSize: 10, color: C.dim, marginTop: 2 }}>
-                      Major #{rooms.filter((x, i) => x.roomClass === "Major" && i <= rooms.indexOf(r)).length} — {(MAJOR_DISCOUNT[Math.min(rooms.filter((x, i) => x.roomClass === "Major" && i <= rooms.indexOf(r)).length - 1, MAJOR_DISCOUNT.length - 1)] * 100).toFixed(0)}% rate
-                    </div>
-                  )}
+            {roomsWithPrices.map((r, idx) => {
+              const majorIdx = roomsWithPrices.filter((x, i) => x.roomClass === "Major" && i <= idx).length - 1;
+              return (
+                <div key={r.id} style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 8, padding: "12px 16px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: 13, color: C.text }}>{r.label}</div>
+                    {r.roomClass === "Major" && majorIdx >= 0 && (
+                      <div style={{ fontSize: 10, color: C.dim, marginTop: 2 }}>Major #{majorIdx + 1} — {(MAJOR_DISCOUNT[Math.min(majorIdx, MAJOR_DISCOUNT.length - 1)] * 100).toFixed(0)}% rate</div>
+                    )}
+                  </div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                    <select value={r.roomClass} onChange={e => setRoomClass(r.id, e.target.value)} style={{
+                      background: C.faint, border: `1px solid ${C.border}`, borderRadius: 4,
+                      color: C.text, padding: "4px 8px", fontSize: 12, fontFamily: "Georgia, serif", cursor: "pointer"
+                    }}>
+                      <option value="Major">Major</option>
+                      <option value="Secondary">Secondary</option>
+                      <option value="Styling">Styling</option>
+                    </select>
+                    <div style={{ fontSize: 14, color: C.gold, minWidth: 70, textAlign: "right" }}>{fmt(r.price)}</div>
+                    <button onClick={() => removeRoom(r.id)} style={{ background: "transparent", border: "none", color: C.dim, cursor: "pointer", fontSize: 16, padding: "0 4px" }}>×</button>
+                  </div>
                 </div>
-                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                  <select value={r.roomClass} onChange={e => setRoomClass(r.id, e.target.value)} style={{
-                    background: C.faint, border: `1px solid ${C.border}`, borderRadius: 4,
-                    color: C.text, padding: "4px 8px", fontSize: 12, fontFamily: "Georgia, serif", cursor: "pointer"
-                  }}>
-                    <option value="Major">Major</option>
-                    <option value="Secondary">Secondary</option>
-                    <option value="Styling">Styling</option>
-                  </select>
-                  <div style={{ fontSize: 14, color: C.gold, minWidth: 70, textAlign: "right" }}>{fmt(r.price)}</div>
-                  <button onClick={() => removeRoom(r.id)} style={{ background: "transparent", border: "none", color: C.dim, cursor: "pointer", fontSize: 16, padding: "0 4px" }}>×</button>
-                </div>
-              </div>
-            ))}
+              );
+            })}
             <div style={{ display: "flex", justifyContent: "space-between", padding: "8px 16px", fontSize: 13, color: C.muted }}>
-              <span>Rooms Subtotal</span>
-              <span>{fmt(roomsTotal)}</span>
+              <span>Rooms Subtotal</span><span>{fmt(roomsTotal)}</span>
             </div>
           </div>
         </div>
       )}
 
-      {/* Install toggle */}
       <div style={{ marginBottom: 24 }}>
         <button onClick={() => setShowInstall(!showInstall)} style={{
           background: showInstall ? C.faint : "transparent",
@@ -645,10 +729,9 @@ const FurnishingsEstimator = () => {
         }}>
           {showInstall ? "▼" : "▶"} Install & Styling Days {showInstall && installTotal > 0 ? `— ${fmt(installTotal)}` : ""}
         </button>
-
         {showInstall && (
           <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 8, padding: "16px", marginTop: 8 }}>
-            <div style={{ fontSize: 11, color: C.dim, marginBottom: 4 }}>Gregory: $250/hr · Admin: $125/hr · Designer: $175/hr</div>
+            <div style={{ fontSize: 11, color: C.dim, marginBottom: 12 }}>Gregory: $250/hr · Admin: $125/hr · Designer: $175/hr</div>
             {installDays.map((d, i) => (
               <div key={i} style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 8, flexWrap: "wrap" }}>
                 <div style={{ fontSize: 13, color: C.muted, minWidth: 48 }}>Day {i + 1}</div>
@@ -672,15 +755,11 @@ const FurnishingsEstimator = () => {
                 <button onClick={() => removeInstallDay(i)} style={{ background: "transparent", border: "none", color: C.dim, cursor: "pointer", fontSize: 16 }}>×</button>
               </div>
             ))}
-            <button onClick={addInstallDay} style={{
-              background: "transparent", border: `1px solid ${C.border}`, borderRadius: 6,
-              color: C.muted, fontSize: 12, padding: "6px 14px", cursor: "pointer", fontFamily: "Georgia, serif", marginTop: 4
-            }}>+ Add Day</button>
+            <button onClick={addInstallDay} style={{ background: "transparent", border: `1px solid ${C.border}`, borderRadius: 6, color: C.muted, fontSize: 12, padding: "6px 14px", cursor: "pointer", fontFamily: "Georgia, serif", marginTop: 4 }}>+ Add Day</button>
           </div>
         )}
       </div>
 
-      {/* Grand total */}
       {(rooms.length > 0 || (showInstall && installTotal > 0)) && (
         <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 8, padding: "20px 24px" }}>
           <div style={{ fontSize: 11, letterSpacing: 2, color: C.dim, marginBottom: 16 }}>TOTAL FURNISHING FEE{clientName ? ` — ${clientName.toUpperCase()}` : ""}</div>
@@ -913,7 +992,7 @@ export default function App() {
           {tab === "Furnishings" && <PinGate><FurnishingsEstimator /></PinGate>}
 
           {tab === "Knowledge Base" && (
-            <div style={{ flex: 1, maxWidth: 800, width: "100%", margin: "0 auto", padding: "24px 16px", display: "flex", flexDirection: "column", gap: 20 }}>
+            <div style={{ flex: 1, maxWidth: 800, width: "100%", margin: "0 auto", padding: "24px 16px", display: "flex", flexDirection: "column", gap: 20, overflowY: "auto" }}>
               <div style={{ fontSize: 11, letterSpacing: 2, color: C.dim }}>KNOWLEDGE BASE — saved to database, persists for all team members</div>
               <textarea value={knowledge} onChange={e => setKnowledge(e.target.value)} rows={22} style={{
                 width: "100%", background: C.surface, border: `1px solid ${C.border}`,
@@ -928,7 +1007,7 @@ export default function App() {
           )}
 
           {tab === "Documents" && (
-            <div style={{ flex: 1, maxWidth: 800, width: "100%", margin: "0 auto", padding: "24px 16px", display: "flex", flexDirection: "column", gap: 20 }}>
+            <div style={{ flex: 1, maxWidth: 800, width: "100%", margin: "0 auto", padding: "24px 16px", display: "flex", flexDirection: "column", gap: 20, overflowY: "auto" }}>
               <div style={{ fontSize: 11, letterSpacing: 2, color: C.dim }}>UPLOADED DOCUMENTS — the AI reads these automatically</div>
               <div onClick={() => fileRef.current?.click()} style={{ border: `2px dashed ${C.border}`, borderRadius: 8, padding: "32px", textAlign: "center", cursor: "pointer", color: C.dim, fontSize: 14 }}>
                 {uploading ? "Uploading and extracting text…" : "Click to upload a file (PDF, TXT, or CSV)"}
@@ -953,7 +1032,7 @@ export default function App() {
           )}
 
           {tab === "Procedures" && (
-            <div style={{ flex: 1, maxWidth: 800, width: "100%", margin: "0 auto", padding: "24px 16px", overflowY: "auto" }}>
+            <div style={{ flex: 1, maxWidth: 900, width: "100%", margin: "0 auto", padding: "24px 16px", overflowY: "auto" }}>
               {PROCEDURES.map((cat, ci) => (
                 <div key={ci} style={{ marginBottom: 32 }}>
                   <div style={{ fontSize: 11, letterSpacing: 3, color: C.gold, marginBottom: 14 }}>{cat.category.toUpperCase()}</div>
