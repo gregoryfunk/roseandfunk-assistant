@@ -1118,10 +1118,12 @@ const ContactsTab = () => {
   const [saving, setSaving] = useState(false);
   const [status, setStatus] = useState("");
 
-  useEffect(() => { loadContacts(); }, []);
+  const [sortBy, setSortBy] = useState("first_name");
+
+  useEffect(() => { loadContacts(); }, [sortBy]);
 
   const loadContacts = async () => {
-    const { data } = await supabase.from("contacts").select("*").order("last_name", { ascending: true });
+    const { data } = await supabase.from("contacts").select("*").order(sortBy, { ascending: true });
     if (data) setContacts(data);
   };
 
@@ -1208,13 +1210,29 @@ const ContactsTab = () => {
         </div>
       )}
 
-      {/* Search + filter */}
-      <div style={{ display: "flex", gap: 10, marginBottom: 20, flexWrap: "wrap" }}>
+      {/* Search + filter + sort */}
+      <div style={{ display: "flex", gap: 10, marginBottom: 20, flexWrap: "wrap", alignItems: "center" }}>
         <input
           value={search} onChange={e => setSearch(e.target.value)}
           placeholder="Search by name or email…"
           style={{ ...inputStyle, flex: 1, minWidth: 200 }}
         />
+        <div style={{ display: "flex", gap: 4, background: C.faint, borderRadius: 6, padding: 3 }}>
+          <button onClick={() => setSortBy("first_name")} style={{
+            background: sortBy === "first_name" ? C.surface : "transparent",
+            border: sortBy === "first_name" ? `1px solid ${C.border}` : "1px solid transparent",
+            borderRadius: 4, padding: "5px 12px", cursor: "pointer",
+            fontSize: 11, color: sortBy === "first_name" ? C.text : C.dim,
+            fontFamily: "'Archivo', sans-serif"
+          }}>First</button>
+          <button onClick={() => setSortBy("last_name")} style={{
+            background: sortBy === "last_name" ? C.surface : "transparent",
+            border: sortBy === "last_name" ? `1px solid ${C.border}` : "1px solid transparent",
+            borderRadius: 4, padding: "5px 12px", cursor: "pointer",
+            fontSize: 11, color: sortBy === "last_name" ? C.text : C.dim,
+            fontFamily: "'Archivo', sans-serif"
+          }}>Last</button>
+        </div>
         <div style={{ display: "flex", gap: 6 }}>
           {["All", ...CONTACT_TYPES].map(t => (
             <button key={t} onClick={() => setFilterType(t)} style={{
