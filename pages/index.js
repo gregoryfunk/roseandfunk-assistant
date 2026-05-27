@@ -7,7 +7,7 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 const ALLOWED_DOMAIN = "roseandfunk.com";
 
 
-const TABS = ["Chat", "Estimator", "Furnishings", "Knowledge Base", "Procedures"];
+const TABS = ["Chat", "Estimator", "Furnishings", "Knowledge Base", "Procedures", "Contacts"];
 
 const C = { // Rose & Funk light theme
   bg: "#EAE5DD", surface: "#F5F2ED", border: "#D4CFCA",
@@ -1047,6 +1047,166 @@ const FurnishingsEstimator = () => {
   );
 };
 
+const CONTACT_TYPES = ["Client", "Builder", "Trade", "Rep"];
+
+const ContactsTab = () => {
+  const [contacts, setContacts] = useState([]);
+  const [search, setSearch] = useState("");
+  const [filterType, setFilterType] = useState("All");
+  const [showForm, setShowForm] = useState(false);
+  const [editingId, setEditingId] = useState(null);
+  const [form, setForm] = useState({ first_name: "", last_name: "", email: "", phone: "", type: "Client", notes: "" });
+  const [saving, setSaving] = useState(false);
+  const [status, setStatus] = useState("");
+
+  useEffect(() => { loadContacts(); }, []);
+
+  const loadContacts = async () => {
+    const { data } = await supabase.from("contacts").select("*").order("last_name", { ascending: true });
+    if (data) setContacts(data);
+  };
+
+  const resetForm = () => {
+    setForm({ first_name: "", last_name: "", email: "", phone: "", type: "Client", notes: "" });
+    setEditingId(null);
+    setShowForm(false);
+  };
+
+  const saveContact = async () => {
+    if (!form.first_name.trim() && !form.last_name.trim()) { setStatus("Please enter a name."); setTimeout(() => setStatus(""), 2500); return; }
+    setSaving(true);
+    if (editingId) {
+      await supabase.from("contacts").update(form).eq("id", editingId);
+    } else {
+      await supabase.from("contacts").insert([form]);
+    }
+    await loadContacts();
+    setSaving(false);
+    resetForm();
+    setStatus(editingId ? "Contact updated." : "Contact saved.");
+    setTimeout(() => setStatus(""), 2500);
+  };
+
+  const deleteContact = async (id) => {
+    await supabase.from("contacts").delete().eq("id", id);
+    setContacts(c => c.filter(x => x.id !== id));
+  };
+
+  const startEdit = (c) => {
+    setForm({ first_name: c.first_name || "", last_name: c.last_name || "", email: c.email || "", phone: c.phone || "", type: c.type || "Client", notes: c.notes || "" });
+    setEditingId(c.id);
+    setShowForm(true);
+  };
+
+  const filtered = contacts.filter(c => {
+    const matchType = filterType === "All" || c.type === filterType;
+    const q = search.toLowerCase();
+    const matchSearch = !q || (c.first_name || "").toLowerCase().includes(q) || (c.last_name || "").toLowerCase().includes(q) || (c.email || "").toLowerCase().includes(q);
+    return matchType && matchSearch;
+  });
+
+  const inputStyle = { width: "100%", background: C.bg, border: `1px solid ${C.border}`, borderRadius: 6, color: C.text, padding: "10px 12px", fontSize: 13, outline: "none", fontFamily: "'Archivo', sans-serif", boxSizing: "border-box" };
+  const typeColor = { Client: "#7a9e8e", Builder: "#8a9cb5", Trade: "#a0896a", Rep: "#9a7aaa" };
+
+  return (
+    <div style={{ flex: 1, maxWidth: 900, width: "100%", margin: "0 auto", padding: "24px 16px", overflowY: "auto" }}>
+
+      {/* Header row */}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20, flexWrap: "wrap", gap: 12 }}>
+        <div style={{ fontSize: 11, letterSpacing: 2, color: C.dim }}>CONTACTS — {contacts.length} total</div>
+        <button onClick={() => { resetForm(); setShowForm(true); }} style={{ background: C.gold, color: C.bg, border: "none", borderRadius: 6, padding: "8px 18px", cursor: "pointer", fontSize: 12, fontFamily: "'Playfair Display', serif", letterSpacing: 1 }}>
+          + ADD CONTACT
+        </button>
+      </div>
+
+      {/* Add / Edit form */}
+      {showForm && (
+        <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 8, padding: "20px 24px", marginBottom: 24 }}>
+          <div style={{ fontSize: 12, letterSpacing: 2, color: C.dim, marginBottom: 16 }}>{editingId ? "EDIT CONTACT" : "NEW CONTACT"}</div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 10 }}>
+            <input value={form.first_name} onChange={e => setForm(f => ({ ...f, first_name: e.target.value }))} placeholder="First name" style={inputStyle} />
+            <input value={form.last_name} onChange={e => setForm(f => ({ ...f, last_name: e.target.value }))} placeholder="Last name" style={inputStyle} />
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 10 }}>
+            <input value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} placeholder="Email" type="email" style={inputStyle} />
+            <input value={form.phone} onChange={e => setForm(f => ({ ...f, phone: e.target.value }))} placeholder="Phone" type="tel" style={inputStyle} />
+          </div>
+          <div style={{ marginBottom: 10 }}>
+            <select value={form.type} onChange={e => setForm(f => ({ ...f, type: e.target.value }))} style={{ ...inputStyle, width: "auto", minWidth: 160 }}>
+              {CONTACT_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+            </select>
+          </div>
+          <div style={{ marginBottom: 16 }}>
+            <input value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} placeholder="Notes (optional)" style={inputStyle} />
+          </div>
+          <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+            <button onClick={saveContact} disabled={saving} style={{ background: C.gold, color: C.bg, border: "none", borderRadius: 6, padding: "9px 22px", cursor: "pointer", fontSize: 12, fontFamily: "'Playfair Display', serif", letterSpacing: 1 }}>
+              {saving ? "Saving…" : editingId ? "SAVE CHANGES" : "SAVE CONTACT"}
+            </button>
+            <button onClick={resetForm} style={{ background: "transparent", border: `1px solid ${C.border}`, borderRadius: 6, padding: "9px 18px", cursor: "pointer", fontSize: 12, color: C.dim, fontFamily: "'Archivo', sans-serif" }}>Cancel</button>
+            {status && <span style={{ fontSize: 12, color: C.gold }}>{status}</span>}
+          </div>
+        </div>
+      )}
+
+      {/* Search + filter */}
+      <div style={{ display: "flex", gap: 10, marginBottom: 20, flexWrap: "wrap" }}>
+        <input
+          value={search} onChange={e => setSearch(e.target.value)}
+          placeholder="Search by name or email…"
+          style={{ ...inputStyle, flex: 1, minWidth: 200 }}
+        />
+        <div style={{ display: "flex", gap: 6 }}>
+          {["All", ...CONTACT_TYPES].map(t => (
+            <button key={t} onClick={() => setFilterType(t)} style={{
+              background: filterType === t ? C.gold : "transparent",
+              color: filterType === t ? C.bg : C.dim,
+              border: `1px solid ${filterType === t ? C.gold : C.border}`,
+              borderRadius: 20, padding: "6px 14px", cursor: "pointer",
+              fontSize: 11, fontFamily: "'Archivo', sans-serif", letterSpacing: 0.5
+            }}>{t}</button>
+          ))}
+        </div>
+      </div>
+
+      {/* Contact list */}
+      {filtered.length === 0 ? (
+        <div style={{ textAlign: "center", color: C.dim, fontSize: 13, padding: "40px 0" }}>
+          {contacts.length === 0 ? "No contacts yet — add your first one above." : "No contacts match your search."}
+        </div>
+      ) : (
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          {filtered.map(c => (
+            <div key={c.id} style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 8, padding: "14px 18px", display: "flex", alignItems: "center", gap: 16 }}>
+              {/* Type badge */}
+              <div style={{ width: 4, alignSelf: "stretch", borderRadius: 4, background: typeColor[c.type] || C.dim, flexShrink: 0 }} />
+
+              {/* Info */}
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+                  <div style={{ fontSize: 15, color: C.text, fontWeight: 500 }}>{c.first_name} {c.last_name}</div>
+                  <div style={{ fontSize: 10, letterSpacing: 1, color: typeColor[c.type] || C.dim, background: (typeColor[c.type] || C.dim) + "22", borderRadius: 4, padding: "2px 8px" }}>{c.type}</div>
+                </div>
+                <div style={{ display: "flex", gap: 20, marginTop: 5, flexWrap: "wrap" }}>
+                  {c.email && <a href={`mailto:${c.email}`} style={{ fontSize: 12, color: C.dim, textDecoration: "none" }}>✉ {c.email}</a>}
+                  {c.phone && <a href={`tel:${c.phone}`} style={{ fontSize: 12, color: C.dim, textDecoration: "none" }}>📞 {c.phone}</a>}
+                </div>
+                {c.notes && <div style={{ fontSize: 11, color: C.dim, marginTop: 4, fontStyle: "italic" }}>{c.notes}</div>}
+              </div>
+
+              {/* Actions */}
+              <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
+                <button onClick={() => startEdit(c)} style={{ background: "transparent", border: `1px solid ${C.border}`, borderRadius: 4, color: C.muted, fontSize: 11, padding: "4px 12px", cursor: "pointer", fontFamily: "'Archivo', sans-serif" }}>Edit</button>
+                <button onClick={() => deleteContact(c.id)} style={{ background: "transparent", border: `1px solid ${C.border}`, borderRadius: 4, color: C.red, fontSize: 11, padding: "4px 12px", cursor: "pointer", fontFamily: "'Archivo', sans-serif" }}>Delete</button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
 const KnowledgeBaseTab = ({ knowledge, setKnowledge, kbStatus, saveKnowledge, documents, uploading, fileRef, handleFileUpload, deleteDoc }) => (
   <div style={{ flex: 1, maxWidth: 800, width: "100%", margin: "0 auto", padding: "24px 16px", display: "flex", flexDirection: "column", gap: 24, overflowY: "auto" }}>
     <div>
@@ -1322,6 +1482,8 @@ function App({ user, onSignOut }) {
           ))}
         </div>
       )}
+
+      {tab === "Contacts" && <ContactsTab />}
     </>
   );
 
