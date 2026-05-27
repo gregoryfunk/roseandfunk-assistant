@@ -1287,7 +1287,6 @@ export default function App() {
 
   // ── MOBILE LAYOUT ────────────────────────────────────────────────────────
   if (isMobile) {
-    const TAB_ICONS = { Chat: "💬", Estimator: "📐", Furnishings: "🛋", "Knowledge Base": "📖", Procedures: "✅" };
     return (
       <div style={{ height: "100dvh", background: C.bg, color: C.text, fontFamily: "Georgia, serif", display: "flex", flexDirection: "column", overflow: "hidden" }}>
         {/* Mobile header */}
@@ -1321,17 +1320,26 @@ export default function App() {
         </div>
 
         {/* Bottom nav */}
-        <div style={{ background: C.surface, borderTop: `1px solid ${C.border}`, display: "flex", flexShrink: 0 }}>
-          {TABS.map(t => (
-            <button key={t} onClick={() => setTab(t)} style={{
-              flex: 1, background: "none", border: "none", borderTop: `2px solid ${tab === t ? C.gold : "transparent"}`,
-              color: tab === t ? C.gold : C.dim, padding: "10px 4px 12px", cursor: "pointer",
-              fontFamily: "Georgia, serif", display: "flex", flexDirection: "column", alignItems: "center", gap: 3
-            }}>
-              <span style={{ fontSize: 18 }}>{TAB_ICONS[t]}</span>
-              <span style={{ fontSize: 9, letterSpacing: 0.5 }}>{t === "Knowledge Base" ? "KB" : t.toUpperCase()}</span>
-            </button>
-          ))}
+        <div style={{ background: C.surface, borderTop: `1px solid ${C.border}`, display: "flex", flexShrink: 0, paddingBottom: "env(safe-area-inset-bottom)" }}>
+          {TABS.map(t => {
+            const active = tab === t;
+            const label = t === "Knowledge Base" ? "Knowledge" : t;
+            return (
+              <button key={t} onClick={() => setTab(t)} style={{
+                flex: 1, background: "none", border: "none", borderTop: `2px solid ${active ? C.gold : "transparent"}`,
+                color: active ? C.gold : C.dim, padding: "12px 2px 14px", cursor: "pointer",
+                fontFamily: "Georgia, serif", display: "flex", flexDirection: "column", alignItems: "center", gap: 2,
+                transition: "color 0.15s"
+              }}>
+                <div style={{
+                  width: 28, height: 3, borderRadius: 2,
+                  background: active ? C.gold : "transparent",
+                  marginBottom: 4, transition: "background 0.15s"
+                }} />
+                <span style={{ fontSize: 10, letterSpacing: 0.8, fontWeight: active ? "bold" : "normal" }}>{label.toUpperCase()}</span>
+              </button>
+            );
+          })}
         </div>
       </div>
     );
