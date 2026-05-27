@@ -45,14 +45,14 @@ export default async function handler(req, res) {
   }
 
   if (action === "save_search") {
-    const { session_id, question } = req.body;
-    await supabase.from("searches").insert({ session_id, question });
+    const { session_id, question, answer } = req.body;
+    await supabase.from("searches").insert({ session_id, question, answer });
     return res.status(200).json({ success: true });
   }
 
   if (action === "load_searches") {
     const { session_id } = req.body;
-    const { data, error } = await supabase.from("searches").select("id, question").eq("session_id", session_id).order("created_at", { ascending: false }).limit(50);
+    const { data, error } = await supabase.from("searches").select("id, question, answer").eq("session_id", session_id).order("created_at", { ascending: false }).limit(50);
     if (error) return res.status(500).json({ error: error.message });
     return res.status(200).json({ searches: data || [] });
   }
