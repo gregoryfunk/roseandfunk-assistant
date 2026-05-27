@@ -1,12 +1,59 @@
 import { useState, useEffect, useRef } from "react";
 
-const TABS = ["Chat", "Knowledge Base", "Documents", "Procedures"];
+const TABS = ["Chat", "Estimator", "Knowledge Base", "Documents", "Procedures"];
 
 const C = {
   bg: "#0f0e0c", surface: "#1a1814", border: "#2a2620",
   gold: "#c8a96e", text: "#f0ebe3", muted: "#d4cdc4",
   dim: "#8a7a65", faint: "#3a3028", red: "#c0614a"
 };
+
+const ROOMS = [
+  { id: "3d", label: "3D Rendering", cost: 1750 },
+  { id: "a", label: "A - Exterior", cost: 2500 },
+  { id: "b", label: "B - Foyer", cost: 1500 },
+  { id: "c", label: "C - Staircase", cost: 2500 },
+  { id: "d", label: "D - Living Room", cost: 2000 },
+  { id: "e", label: "E - Dining Room", cost: 2000 },
+  { id: "f", label: "F - Powder Room", cost: 1750 },
+  { id: "g", label: "G - Office", cost: 2500 },
+  { id: "h", label: "H - Kitchen", cost: 5000 },
+  { id: "i", label: "I - Kitchen Island", cost: 3500 },
+  { id: "j", label: "J - Pantry", cost: 2500 },
+  { id: "k", label: "K - Eating Nook", cost: 1250 },
+  { id: "l", label: "L - Family/Living", cost: 3000 },
+  { id: "m", label: "M - Mudroom", cost: 2500 },
+  { id: "n", label: "N - Laundry", cost: 2500 },
+  { id: "o", label: "O - Laundry (small)", cost: 1500 },
+  { id: "p", label: "P - Primary Bedroom", cost: 3500 },
+  { id: "q", label: "Q - Primary Ensuite", cost: 3500 },
+  { id: "r", label: "R - Primary WIC", cost: 2500 },
+  { id: "s", label: "S - Bedroom", cost: 1750 },
+  { id: "t", label: "T - Bedroom (small)", cost: 250 },
+  { id: "u", label: "U - Bathroom", cost: 2500 },
+  { id: "v", label: "V - Bathroom (small)", cost: 2500 },
+  { id: "w", label: "W - Media Room", cost: 2500 },
+  { id: "x", label: "X - Bar", cost: 2500 },
+  { id: "y", label: "Y - Gym", cost: 1500 },
+  { id: "z1", label: "Z - Suite | Bedroom", cost: 1750 },
+  { id: "z2", label: "Z - Suite | Bath", cost: 250 },
+  { id: "z3", label: "Z - Suite | Kitchen", cost: 2000 },
+  { id: "z4", label: "Z - Suite | Living", cost: 750 },
+  { id: "zz1", label: "ZZ - Outdoor (large)", cost: 2000 },
+  { id: "zz2", label: "ZZ - Outdoor (small)", cost: 1500 },
+];
+
+const PHASES = [
+  { label: "Phase 1", pct: 0.15 },
+  { label: "Phase 2", pct: 0.275 },
+  { label: "Phase 3", pct: 0.20 },
+  { label: "Phase 4", pct: 0.25 },
+  { label: "Phase 5", pct: 0.125 },
+];
+
+const MIN_FEE = 0;
+
+const fmt = (n) => n.toLocaleString("en-CA", { style: "currency", currency: "CAD", maximumFractionDigits: 0 });
 
 const PROCEDURES = [
   {
@@ -139,21 +186,14 @@ const getSessionId = () => {
   return id;
 };
 
-// Renders a clarifying question block with clickable options
 const ClarifyingMessage = ({ data, onAnswer }) => {
   const [selections, setSelections] = useState({});
-
-  const select = (qi, option) => {
-    setSelections(s => ({ ...s, [qi]: option }));
-  };
-
+  const select = (qi, option) => setSelections(s => ({ ...s, [qi]: option }));
   const allAnswered = data.questions.every((_, i) => selections[i]);
-
   const submit = () => {
     const answer = data.questions.map((q, i) => `${q.question}: ${selections[i]}`).join("\n");
     onAnswer(answer);
   };
-
   return (
     <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 8, padding: "16px 18px", maxWidth: "80%" }}>
       {data.intro && <div style={{ fontSize: 14, color: C.text, marginBottom: 14, lineHeight: 1.5 }}>{data.intro}</div>}
@@ -179,6 +219,94 @@ const ClarifyingMessage = ({ data, onAnswer }) => {
           padding: "8px 20px", cursor: "pointer", fontSize: 13,
           fontFamily: "Georgia, serif", marginTop: 4
         }}>Get Answer →</button>
+      )}
+    </div>
+  );
+};
+
+const Estimator = () => {
+  const [qtys, setQtys] = useState({});
+  const setQty = (id, val) => setQtys(q => ({ ...q, [id]: Math.max(0, parseInt(val) || 0) }));
+
+  const selectedRooms = ROOMS.filter(r => (qtys[r.id] || 0) > 0);
+  const subtotal = selectedRooms.reduce((sum, r) => sum + r.cost * qtys[r.id], 0);
+  const total = Math.max(subtotal, MIN_FEE);
+  const isMinFee = subtotal < MIN_FEE && subtotal > 0;
+
+  return (
+    <div style={{ flex: 1, maxWidth: 900, width: "100%", margin: "0 auto", padding: "24px 16px", overflowY: "auto" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 24, flexWrap: "wrap", gap: 12 }}>
+        <div>
+          <div style={{ fontSize: 11, letterSpacing: 2, color: C.dim }}>PROJECT ESTIMATOR — ID BY ROOM</div>
+          <div style={{ fontSize: 12, color: C.dim, marginTop: 4 }}>Based on $200/hr</div>
+        </div>
+        <button onClick={() => setQtys({})} style={{
+          background: "transparent", border: `1px solid ${C.border}`, borderRadius: 6,
+          color: C.dim, fontSize: 12, padding: "6px 14px", cursor: "pointer", fontFamily: "Georgia, serif"
+        }}>Reset</button>
+      </div>
+
+      {/* Room selector */}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 32 }}>
+        {ROOMS.map(r => (
+          <div key={r.id} style={{
+            background: (qtys[r.id] || 0) > 0 ? C.faint : C.surface,
+            border: `1px solid ${(qtys[r.id] || 0) > 0 ? C.gold : C.border}`,
+            borderRadius: 8, padding: "10px 14px", display: "flex", justifyContent: "space-between", alignItems: "center"
+          }}>
+            <div>
+              <div style={{ fontSize: 13, color: C.text }}>{r.label}</div>
+              <div style={{ fontSize: 11, color: C.dim, marginTop: 2 }}>{fmt(r.cost)}</div>
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <button onClick={() => setQty(r.id, (qtys[r.id] || 0) - 1)} style={{
+                width: 24, height: 24, borderRadius: "50%", background: C.faint, border: `1px solid ${C.border}`,
+                color: C.text, cursor: "pointer", fontSize: 16, display: "flex", alignItems: "center", justifyContent: "center"
+              }}>−</button>
+              <span style={{ fontSize: 14, color: C.text, minWidth: 16, textAlign: "center" }}>{qtys[r.id] || 0}</span>
+              <button onClick={() => setQty(r.id, (qtys[r.id] || 0) + 1)} style={{
+                width: 24, height: 24, borderRadius: "50%", background: C.faint, border: `1px solid ${C.border}`,
+                color: C.text, cursor: "pointer", fontSize: 16, display: "flex", alignItems: "center", justifyContent: "center"
+              }}>+</button>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Summary */}
+      {total > 0 && (
+        <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 8, padding: "20px 24px" }}>
+          <div style={{ fontSize: 11, letterSpacing: 2, color: C.dim, marginBottom: 16 }}>ESTIMATE SUMMARY</div>
+
+          {selectedRooms.length > 0 && (
+            <div style={{ marginBottom: 16 }}>
+              {selectedRooms.map(r => (
+                <div key={r.id} style={{ display: "flex", justifyContent: "space-between", fontSize: 13, color: C.muted, padding: "4px 0", borderBottom: `1px solid ${C.faint}` }}>
+                  <span>{r.label} × {qtys[r.id]}</span>
+                  <span>{fmt(r.cost * qtys[r.id])}</span>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <div style={{ display: "flex", justifyContent: "space-between", fontSize: 16, color: C.text, fontWeight: "bold", marginBottom: 20, paddingTop: 8 }}>
+            <span>TOTAL</span>
+            <span style={{ color: C.gold }}>{fmt(total)}</span>
+          </div>
+
+          <div style={{ fontSize: 11, letterSpacing: 2, color: C.dim, marginBottom: 12 }}>PAYMENT SCHEDULE</div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            {PHASES.map((p, i) => (
+              <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 14px", background: C.faint, borderRadius: 6 }}>
+                <div>
+                  <div style={{ fontSize: 13, color: C.text }}>{p.label}</div>
+                  <div style={{ fontSize: 11, color: C.dim, marginTop: 2 }}>{(p.pct * 100).toFixed(1)}%</div>
+                </div>
+                <div style={{ fontSize: 15, color: C.gold }}>{fmt(total * p.pct)}</div>
+              </div>
+            ))}
+          </div>
+        </div>
       )}
     </div>
   );
@@ -240,13 +368,9 @@ export default function App() {
     const updated = [...messages, userMsg];
     setMessages(updated);
     setInput("");
-
     api({ action: "save_search", session_id: sessionId, question }).then(() => {
-      api({ action: "load_searches", session_id: sessionId }).then(d => {
-        if (d.searches) setSearches(d.searches);
-      });
+      api({ action: "load_searches", session_id: sessionId }).then(d => { if (d.searches) setSearches(d.searches); });
     });
-
     await sendMessages(updated);
   };
 
@@ -257,15 +381,8 @@ export default function App() {
     await sendMessages(updated);
   };
 
-  const reaskQuestion = (question) => {
-    setInput(question);
-    setTab("Chat");
-  };
-
-  const deleteSearch = async (id) => {
-    await api({ action: "delete_search", id });
-    setSearches(s => s.filter(x => x.id !== id));
-  };
+  const reaskQuestion = (question) => { setInput(question); setTab("Chat"); };
+  const deleteSearch = async (id) => { await api({ action: "delete_search", id }); setSearches(s => s.filter(x => x.id !== id)); };
 
   const saveKnowledge = async () => {
     setKbStatus("Saving…");
@@ -287,27 +404,18 @@ export default function App() {
     if (!file) return;
     setUploading(true);
     try {
-      let text = "";
-      if (file.type === "application/pdf") {
-        const arrayBuffer = await file.arrayBuffer();
-        text = await extractPdfText(arrayBuffer);
-      } else {
-        text = await file.text();
-      }
+      let text = file.type === "application/pdf"
+        ? await extractPdfText(await file.arrayBuffer())
+        : await file.text();
       await api({ action: "save_document", name: file.name, text });
       const d = await api({ action: "load_documents" });
       if (d.documents) setDocuments(d.documents);
-    } catch (err) {
-      console.error("Upload error:", err);
-    }
+    } catch (err) { console.error("Upload error:", err); }
     setUploading(false);
     e.target.value = "";
   };
 
-  const deleteDoc = async (id) => {
-    await api({ action: "delete_document", id });
-    setDocuments(docs => docs.filter(d => d.id !== id));
-  };
+  const deleteDoc = async (id) => { await api({ action: "delete_document", id }); setDocuments(docs => docs.filter(d => d.id !== id)); };
 
   return (
     <div style={{ minHeight: "100vh", background: C.bg, color: C.text, fontFamily: "Georgia, serif", display: "flex", flexDirection: "column" }}>
@@ -335,28 +443,18 @@ export default function App() {
           <div style={{ padding: "16px 14px 8px", fontSize: 10, letterSpacing: 2, color: C.dim }}>RECENT SEARCHES</div>
           {searches.length === 0 ? (
             <div style={{ padding: "8px 14px", fontSize: 12, color: C.dim }}>Your recent questions will appear here</div>
-          ) : (
-            searches.map(s => (
-              <div key={s.id} style={{ display: "flex", alignItems: "flex-start", gap: 4, padding: "6px 10px", borderBottom: `1px solid ${C.faint}` }}>
-                <button onClick={() => reaskQuestion(s.question)} style={{
-                  flex: 1, background: "transparent", border: "none", color: C.muted,
-                  fontSize: 12, textAlign: "left", cursor: "pointer", fontFamily: "Georgia, serif",
-                  lineHeight: 1.4, padding: "2px 0"
-                }}>
-                  {s.question.length > 60 ? s.question.slice(0, 60) + "…" : s.question}
-                </button>
-                <button onClick={() => deleteSearch(s.id)} style={{
-                  background: "transparent", border: "none", color: C.dim,
-                  cursor: "pointer", fontSize: 14, padding: "0 2px", flexShrink: 0
-                }}>×</button>
-              </div>
-            ))
-          )}
+          ) : searches.map(s => (
+            <div key={s.id} style={{ display: "flex", alignItems: "flex-start", gap: 4, padding: "6px 10px", borderBottom: `1px solid ${C.faint}` }}>
+              <button onClick={() => reaskQuestion(s.question)} style={{
+                flex: 1, background: "transparent", border: "none", color: C.muted,
+                fontSize: 12, textAlign: "left", cursor: "pointer", fontFamily: "Georgia, serif", lineHeight: 1.4, padding: "2px 0"
+              }}>{s.question.length > 60 ? s.question.slice(0, 60) + "…" : s.question}</button>
+              <button onClick={() => deleteSearch(s.id)} style={{ background: "transparent", border: "none", color: C.dim, cursor: "pointer", fontSize: 14, padding: "0 2px", flexShrink: 0 }}>×</button>
+            </div>
+          ))}
         </div>
 
-        {/* Content */}
         <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
-
           {tab === "Chat" && (
             <div style={{ flex: 1, display: "flex", flexDirection: "column", maxWidth: 800, width: "100%", margin: "0 auto", padding: "0 16px" }}>
               <div style={{ flex: 1, overflowY: "auto", padding: "24px 0", display: "flex", flexDirection: "column", gap: 16 }}>
@@ -414,6 +512,8 @@ export default function App() {
               </div>
             </div>
           )}
+
+          {tab === "Estimator" && <Estimator />}
 
           {tab === "Knowledge Base" && (
             <div style={{ flex: 1, maxWidth: 800, width: "100%", margin: "0 auto", padding: "24px 16px", display: "flex", flexDirection: "column", gap: 20 }}>
