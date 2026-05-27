@@ -475,6 +475,7 @@ const PROCEDURES = [
       },
     ]
   },
+];
 
 const ownerColor = (owner = "") => {
   if (owner.includes("GREGORY") || owner.includes("PRINCIPAL")) return C.gold;
