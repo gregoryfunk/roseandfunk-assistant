@@ -1356,7 +1356,7 @@ const ScheduleTab = () => {
       setConflicts(data.conflicts || []);
       setStep("review");
     } catch (err) {
-      setError("Failed to generate schedule. Please try again.");
+      setError(`Error: ${err.message || "Failed to generate schedule. Please try again."}`);
       setStep("setup");
     }
   };
@@ -1519,7 +1519,19 @@ const ScheduleTab = () => {
                               <div style={{ fontSize: 11, color: C.dim, marginTop: 3 }}>{ev.notes}</div>
                             </div>
                             <div style={{ textAlign: "right", flexShrink: 0 }}>
-                              {ev.date && <div style={{ fontSize: 13, color: ev.type === "meeting" ? phaseColor : C.muted, fontWeight: 500 }}>{fmtDate(ev.date)}</div>}
+                              {ev.date && (
+                                <div style={{ fontSize: 13, color: ev.type === "meeting" ? phaseColor : C.muted, fontWeight: 500 }}>
+                                  {ev.days > 1 ? (() => {
+                                    const end = new Date(ev.date);
+                                    let added = 0;
+                                    while (added < ev.days - 1) {
+                                      end.setDate(end.getDate() + 1);
+                                      if (end.getDay() !== 0 && end.getDay() !== 1) added++;
+                                    }
+                                    return `${fmtDate(ev.date)} – ${fmtDate(end)}`;
+                                  })() : fmtDate(ev.date)}
+                                </div>
+                              )}
                               {ev.startTime && ev.endTime && (
                                 <div style={{ fontSize: 11, color: C.dim, marginTop: 2 }}>
                                   {ev.days > 1 ? `${ev.days} days · ` : ""}{fmtTime(ev.startTime)} – {fmtTime(ev.endTime)}
