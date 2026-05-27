@@ -1168,7 +1168,7 @@ const buildIDSchedule = (clientName, contractDate) => {
 
   // PRE-DESIGN
   cursor = addWorkDays(start, 1);
-  events.push({ phase: "Pre-Design", type: "block", label: `RF ${clientName} | Initial Drawing Set-up`, start: withTime(cursor, 9), end: withTime(cursor, 17), days: 3, notes: "Designer — 3 days drawing set-up" });
+  events.push({ phase: "Pre-Design", type: "block", label: `Design ${clientName} | Initial Drawing Set-up`, start: withTime(cursor, 9), end: withTime(cursor, 17), days: 3, notes: "Designer — 3 days drawing set-up" });
 
   // PHASE 1 — Initial Meeting options
   cursor = addWorkDays(cursor, 3);
@@ -1176,7 +1176,7 @@ const buildIDSchedule = (clientName, contractDate) => {
   events.push({ phase: "Phase 1", type: "meeting", label: `RF ${clientName} | Initial Meeting 1.1`, durationHrs: 1.5, options: initialMtgOptions, selectedOption: 0, notes: "Gregory + Designer + Client · 1.5 hrs · Zoom or in-person" });
 
   // After initial meeting: Aesthetic Direction work (2 days)
-  events.push({ phase: "Phase 1", type: "block", label: `RF ${clientName} | Aesthetic Direction`, days: 2, offsetFromPrev: 1, notes: "Gregory OFF 9am–4pm · Designer invited · No client meetings" });
+  events.push({ phase: "Phase 1", type: "block", label: `Design ${clientName} | Aesthetic Direction`, days: 2, offsetFromPrev: 1, notes: "Gregory OFF 9am–4pm · Designer invited · No client meetings" });
 
   // Aesthetic Direction Meeting options
   events.push({ phase: "Phase 1", type: "meeting", label: `RF ${clientName} | Aesthetic Direction Meeting`, durationHrs: 1.5, offsetFromPrevBlock: 1, options: [], selectedOption: 0, notes: "Gregory + Designer + Client · 1.5 hrs" });
@@ -1185,39 +1185,39 @@ const buildIDSchedule = (clientName, contractDate) => {
   events.push({ phase: "Phase 1", type: "meeting", label: `RF ${clientName} | Appliance + Plumbing Meeting`, durationHrs: 4, offsetFromPrev: 2, options: [], selectedOption: 0, notes: "Gregory + Designer + Client · 4 hrs" });
 
   // PHASE 2
-  events.push({ phase: "Phase 2", type: "block", label: `RF ${clientName} | Team Material Concept`, days: 2, offsetFromPrev: 2, notes: "Gregory OFF 9am–4pm · Designer invited · No client meetings" });
-  events.push({ phase: "Phase 2", type: "block", label: `RF ${clientName} | Complete Material Boards`, days: 2, offsetFromPrev: 1, notes: "Designer" });
-  events.push({ phase: "Phase 2", type: "block", label: `RF ${clientName} | Lighting Concept Boards`, days: 2, offsetFromPrev: 1, notes: "Designer" });
-  events.push({ phase: "Phase 2", type: "block", label: `RF ${clientName} | Sketch Elevations`, days: 1, offsetFromPrev: 1, notes: "Gregory OFF 9am–4pm · Designer invited · No client meetings" });
-  events.push({ phase: "Phase 2", type: "block", label: `RF ${clientName} | Elevations in AutoCAD`, days: 2, offsetFromPrev: 1, notes: "Designer" });
+  events.push({ phase: "Phase 2", type: "block", label: `Design ${clientName} | Team Material Concept`, days: 2, offsetFromPrev: 2, notes: "Gregory OFF 9am–4pm · Designer invited · No client meetings" });
+  events.push({ phase: "Phase 2", type: "block", label: `Design ${clientName} | Complete Material Boards`, days: 2, offsetFromPrev: 1, notes: "Designer" });
+  events.push({ phase: "Phase 2", type: "block", label: `Design ${clientName} | Lighting Concept Boards`, days: 2, offsetFromPrev: 1, notes: "Designer" });
+  events.push({ phase: "Phase 2", type: "block", label: `Design ${clientName} | Sketch Elevations`, days: 1, offsetFromPrev: 1, notes: "Gregory OFF 9am–4pm · Designer invited · No client meetings" });
+  events.push({ phase: "Phase 2", type: "block", label: `Design ${clientName} | Elevations in AutoCAD`, days: 2, offsetFromPrev: 1, notes: "Designer" });
 
   // Concept Elevation + Material Meeting
   events.push({ phase: "Phase 2", type: "meeting", label: `RF ${clientName} | Concept Elevation + Material Meeting`, durationHrs: 4, offsetFromPrevBlock: 1, options: [], selectedOption: 0, notes: "Gregory + Designer + Client · 4 hrs · Prefer Friday at 11am or 1pm" });
 
   // PHASE 3
-  events.push({ phase: "Phase 3", type: "block", label: `RF ${clientName} | Concept Revisions + Material Boards`, days: 2, offsetFromPrev: 2, notes: "1 day Gregory OFF 9am–4pm · Designer invited" });
-  events.push({ phase: "Phase 3", type: "block", label: `RF ${clientName} | Documentation`, days: 3, offsetFromPrev: 1, notes: "Designer" });
-  events.push({ phase: "Phase 3", type: "block", label: `RF ${clientName} | Concept Exterior`, days: 1, offsetFromPrev: 1, notes: "2 hrs Gregory" });
+  events.push({ phase: "Phase 3", type: "block", label: `Design ${clientName} | Concept Revisions + Material Boards`, days: 2, offsetFromPrev: 2, notes: "1 day Gregory OFF 9am–4pm · Designer invited" });
+  events.push({ phase: "Phase 3", type: "block", label: `Design ${clientName} | Documentation`, days: 3, offsetFromPrev: 1, notes: "Designer" });
+  events.push({ phase: "Phase 3", type: "block", label: `Design ${clientName} | Concept Exterior`, days: 1, offsetFromPrev: 1, notes: "2 hrs Gregory" });
 
   // Material Confirmation Meeting
   events.push({ phase: "Phase 3", type: "meeting", label: `RF ${clientName} | Material Confirmation Meeting`, durationHrs: 3, offsetFromPrevBlock: 1, options: [], selectedOption: 0, notes: "Gregory + Designer + Client · 3 hrs · Prefer Friday at 11am or 1pm" });
 
   // PHASE 4
-  events.push({ phase: "Phase 4", type: "block", label: `RF ${clientName} | 3D Rendering (external)`, days: 15, offsetFromPrev: 2, notes: "2–3 weeks for rendering · Client review period" });
-  events.push({ phase: "Phase 4", type: "block", label: `RF ${clientName} | Material Confirmation Revisions`, days: 1, offsetFromPrev: 1, notes: "Designer" });
-  events.push({ phase: "Phase 4", type: "block", label: `RF ${clientName} | Complete Remaining Elevations`, days: 3, offsetFromPrev: 4, notes: "3 client review days before this · Designer" });
-  events.push({ phase: "Phase 4", type: "block", label: `RF ${clientName} | Drawing Details`, days: 1, offsetFromPrev: 1, notes: "Designer" });
-  events.push({ phase: "Phase 4", type: "block", label: `RF ${clientName} | Dimension + Noting Elevations`, days: 2, offsetFromPrev: 1, notes: "Designer" });
-  events.push({ phase: "Phase 4", type: "block", label: `RF ${clientName} | Plan Layouts`, days: 5, offsetFromPrev: 1, notes: "Designer" });
+  events.push({ phase: "Phase 4", type: "block", label: `Design ${clientName} | 3D Rendering (external)`, days: 15, offsetFromPrev: 2, notes: "2–3 weeks for rendering · Client review period" });
+  events.push({ phase: "Phase 4", type: "block", label: `Design ${clientName} | Material Confirmation Revisions`, days: 1, offsetFromPrev: 1, notes: "Designer" });
+  events.push({ phase: "Phase 4", type: "block", label: `Design ${clientName} | Complete Remaining Elevations`, days: 3, offsetFromPrev: 4, notes: "3 client review days before this · Designer" });
+  events.push({ phase: "Phase 4", type: "block", label: `Design ${clientName} | Drawing Details`, days: 1, offsetFromPrev: 1, notes: "Designer" });
+  events.push({ phase: "Phase 4", type: "block", label: `Design ${clientName} | Dimension + Noting Elevations`, days: 2, offsetFromPrev: 1, notes: "Designer" });
+  events.push({ phase: "Phase 4", type: "block", label: `Design ${clientName} | Plan Layouts`, days: 5, offsetFromPrev: 1, notes: "Designer" });
 
   // Final Review Meeting
   events.push({ phase: "Phase 4", type: "meeting", label: `RF ${clientName} | Final Review Meeting`, durationHrs: 3, offsetFromPrevBlock: 1, options: [], selectedOption: 0, notes: "Gregory + Designer + Client · 3 hrs · Prefer Friday at 11am or 1pm" });
 
   // POST FINAL
-  events.push({ phase: "Post Final", type: "block", label: `RF ${clientName} | Client Adjustments + Send for Sign-off`, days: 1, offsetFromPrev: 3, notes: "Designer" });
-  events.push({ phase: "Post Final", type: "block", label: `RF ${clientName} | Final Adjustments + Send to Print`, days: 2, offsetFromPrev: 4, notes: "3 client review days · Designer" });
-  events.push({ phase: "Post Final", type: "block", label: `RF ${clientName} | Review Drawings + Gather`, days: 1, offsetFromPrev: 1, notes: "Gregory OFF 9am–4pm · Designer invited" });
-  events.push({ phase: "Post Final", type: "block", label: `RF ${clientName} | All Final Edits + Send to Client`, days: 3, offsetFromPrev: 1, notes: "Designer" });
+  events.push({ phase: "Post Final", type: "block", label: `Design ${clientName} | Client Adjustments + Send for Sign-off`, days: 1, offsetFromPrev: 3, notes: "Designer" });
+  events.push({ phase: "Post Final", type: "block", label: `Design ${clientName} | Final Adjustments + Send to Print`, days: 2, offsetFromPrev: 4, notes: "3 client review days · Designer" });
+  events.push({ phase: "Post Final", type: "block", label: `Design ${clientName} | Review Drawings + Gather`, days: 1, offsetFromPrev: 1, notes: "Gregory OFF 9am–4pm · Designer invited" });
+  events.push({ phase: "Post Final", type: "block", label: `Design ${clientName} | All Final Edits + Send to Client`, days: 3, offsetFromPrev: 1, notes: "Designer" });
 
   return events;
 };
@@ -1230,7 +1230,7 @@ const buildFurnishingsSchedule = (clientName, contractDate) => {
 
   // PRE-DESIGN
   cursor = addWorkDays(start, 1);
-  events.push({ phase: "Pre-Design", type: "block", label: `RF ${clientName} | Drawing File Set-up`, days: 1, notes: "Admin + Designer · Set up drawing file, sheets, AutoCAD layout, book all meeting dates" });
+  events.push({ phase: "Pre-Design", type: "block", label: `Design ${clientName} | Drawing File Set-up`, days: 1, notes: "Admin + Designer · Set up drawing file, sheets, AutoCAD layout, book all meeting dates" });
 
   // PHASE 1 — Initial Meeting
   cursor = addWorkDays(cursor, 2);
@@ -1238,37 +1238,37 @@ const buildFurnishingsSchedule = (clientName, contractDate) => {
   events.push({ phase: "Phase 1 | Concept", type: "meeting", label: `RF ${clientName} | Initial Meeting`, durationHrs: 1.5, options: initialMtgOptions, selectedOption: 0, notes: "Gregory + Designer + Client · 1.5 hrs · Review scope, budget, inspiration" });
 
   // Sourcing — 2 days Gregory off
-  events.push({ phase: "Phase 1 | Concept", type: "block", label: `RF ${clientName} | Sourcing`, days: 2, offsetFromPrev: 1, notes: "Gregory OFF both days 9am–4pm · Designer" });
+  events.push({ phase: "Phase 1 | Concept", type: "block", label: `Design ${clientName} | Sourcing`, days: 2, offsetFromPrev: 1, notes: "Gregory OFF both days 9am–4pm · Designer" });
 
   // Furniture Mood Boards — 3 days girls, 1 day Gregory
-  events.push({ phase: "Phase 1 | Concept", type: "block", label: `RF ${clientName} | Furniture Mood Boards`, days: 3, offsetFromPrev: 1, notes: "Designer 3 days · 1 day Gregory review" });
+  events.push({ phase: "Phase 1 | Concept", type: "block", label: `Design ${clientName} | Furniture Mood Boards`, days: 3, offsetFromPrev: 1, notes: "Designer 3 days · 1 day Gregory review" });
 
   // Furniture Pricing
-  events.push({ phase: "Phase 1 | Concept", type: "block", label: `RF ${clientName} | Furniture Pricing`, days: 1, offsetFromPrev: 1, notes: "Designer · Note all requested revisions" });
+  events.push({ phase: "Phase 1 | Concept", type: "block", label: `Design ${clientName} | Furniture Pricing`, days: 1, offsetFromPrev: 1, notes: "Designer · Note all requested revisions" });
 
   // Furniture Meeting
   events.push({ phase: "Phase 1 | Concept", type: "meeting", label: `RF ${clientName} | Furniture Meeting`, durationHrs: 2, offsetFromPrevBlock: 1, options: [], selectedOption: 0, notes: "Gregory + Designer + Client · 2 hrs · Present furniture boards + pricing" });
 
   // Furniture Meeting Revisions
-  events.push({ phase: "Phase 1 | Concept", type: "block", label: `RF ${clientName} | Furniture Meeting Revisions`, days: 1, offsetFromPrev: 1, notes: "Designer" });
+  events.push({ phase: "Phase 1 | Concept", type: "block", label: `Design ${clientName} | Furniture Meeting Revisions`, days: 1, offsetFromPrev: 1, notes: "Designer" });
 
   // PHASE 2
-  events.push({ phase: "Phase 2 | Finalize", type: "block", label: `RF ${clientName} | Enter Selections into Gather`, days: 1, offsetFromPrev: 1, notes: "Designer" });
-  events.push({ phase: "Phase 2 | Finalize", type: "block", label: `RF ${clientName} | Order Samples`, days: 1, offsetFromPrev: 1, notes: "Designer" });
+  events.push({ phase: "Phase 2 | Finalize", type: "block", label: `Design ${clientName} | Enter Selections into Gather`, days: 1, offsetFromPrev: 1, notes: "Designer" });
+  events.push({ phase: "Phase 2 | Finalize", type: "block", label: `Design ${clientName} | Order Samples`, days: 1, offsetFromPrev: 1, notes: "Designer" });
 
   // Furniture & Fabric Confirmation Meeting — on site
   events.push({ phase: "Phase 2 | Finalize", type: "meeting", label: `RF ${clientName} | Furniture + Fabric Confirmation Meeting`, durationHrs: 1.5, offsetFromPrevBlock: 2, options: [], selectedOption: 0, notes: "Gregory + Designer + Client · 1.5 hrs · ON SITE · Include drapery measurement if applicable" });
 
-  events.push({ phase: "Phase 2 | Finalize", type: "block", label: `RF ${clientName} | Confirmation Meeting Revisions`, days: 1, offsetFromPrev: 1, notes: "Designer" });
+  events.push({ phase: "Phase 2 | Finalize", type: "block", label: `Design ${clientName} | Confirmation Meeting Revisions`, days: 1, offsetFromPrev: 1, notes: "Designer" });
 
   // PHASE 3 — Accessories
-  events.push({ phase: "Phase 3 | Accessories", type: "block", label: `RF ${clientName} | Art Sourcing`, days: 1, offsetFromPrev: 2, notes: "Gregory OFF 9am–4pm · Designer" });
-  events.push({ phase: "Phase 3 | Accessories", type: "block", label: `RF ${clientName} | Accessory + Art Concept Boards`, days: 1, offsetFromPrev: 1, notes: "Designer" });
+  events.push({ phase: "Phase 3 | Accessories", type: "block", label: `Design ${clientName} | Art Sourcing`, days: 1, offsetFromPrev: 2, notes: "Gregory OFF 9am–4pm · Designer" });
+  events.push({ phase: "Phase 3 | Accessories", type: "block", label: `Design ${clientName} | Accessory + Art Concept Boards`, days: 1, offsetFromPrev: 1, notes: "Designer" });
 
   // Accessory & Art Concept Meeting
   events.push({ phase: "Phase 3 | Accessories", type: "meeting", label: `RF ${clientName} | Accessory + Art Concept Meeting`, durationHrs: 1.5, offsetFromPrevBlock: 1, options: [], selectedOption: 0, notes: "Gregory + Designer + Client · 1.5 hrs · 3 business day client review after" });
 
-  events.push({ phase: "Phase 3 | Accessories", type: "block", label: `RF ${clientName} | Accessory Board Revisions`, days: 1, offsetFromPrev: 4, notes: "Designer · After 3 business day client review" });
+  events.push({ phase: "Phase 3 | Accessories", type: "block", label: `Design ${clientName} | Accessory Board Revisions`, days: 1, offsetFromPrev: 4, notes: "Designer · After 3 business day client review" });
 
   // PHASE 4 — Installation
   events.push({ phase: "Phase 4 | Installation", type: "meeting", label: `RF ${clientName} | Furniture Set-Up Day`, durationHrs: 7, offsetFromPrevBlock: 14, options: [], selectedOption: 0, notes: "Gregory + Designer · Full day on site · After all orders placed + delivered" });
