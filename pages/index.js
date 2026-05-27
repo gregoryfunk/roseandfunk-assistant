@@ -1299,7 +1299,7 @@ function App({ user, onSignOut }) {
         {/* Mobile header */}
         <div style={{ background: C.surface, borderBottom: `1px solid ${C.border}`, padding: "12px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <img src="/logo.png" alt="Rose & Funk" style={{ height: 36, objectFit: "contain" }} />
+            <img src="/RF_LogoPrimary_Black__RGB.png" alt="Rose & Funk" style={{ height: 24, objectFit: "contain" }} />
             <div style={{ fontSize: 10, color: C.dim, letterSpacing: 2, fontFamily: "'Playfair Display', serif" }}>STUDIO ASSISTANT</div>
           </div>
           <div style={{ display: "flex", gap: 8 }}>
@@ -1362,7 +1362,7 @@ function App({ user, onSignOut }) {
     <div style={{ minHeight: "100vh", background: C.bg, color: C.text, fontFamily: "'Archivo', sans-serif", display: "flex", flexDirection: "column" }}>
       <div style={{ background: C.surface, borderBottom: `1px solid ${C.border}`, padding: "18px 24px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          <img src="/logo.png" alt="Rose & Funk" style={{ height: 48, objectFit: "contain" }} />
+          <img src="/RF_LogoPrimary_Black__RGB.png" alt="Rose & Funk" style={{ height: 32, objectFit: "contain" }} />
           <div style={{ fontSize: 11, color: C.dim, letterSpacing: 2, fontFamily: "'Playfair Display', serif" }}>STUDIO ASSISTANT</div>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
@@ -1468,7 +1468,7 @@ const LoginScreen = ({ onLogin }) => {
       <div style={{ width: "100%", maxWidth: 380 }}>
         {/* Logo */}
         <div style={{ textAlign: "center", marginBottom: 40 }}>
-          <img src="/logo.png" alt="Rose & Funk" style={{ height: 56, objectFit: "contain", marginBottom: 12 }} />
+          <img src="/RF_LogoPrimary_Black__RGB.png" alt="Rose & Funk" style={{ height: 36, objectFit: "contain", marginBottom: 12 }} />
           <div style={{ fontSize: 10, letterSpacing: 4, color: "#9A8880" }}>STUDIO ASSISTANT</div>
         </div>
 
