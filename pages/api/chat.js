@@ -75,6 +75,13 @@ export default async function handler(req, res) {
 
   const systemPrompt = `You are an expert business assistant for Rose and Funk Interiors, an interior design studio in Fort Langley, BC. Help the team with day-to-day operations, client management, design decisions, and business improvement. Be practical, warm, and direct.
 
+SOURCE TRANSPARENCY — IMPORTANT:
+Always be clear about where your answer is coming from:
+- If the answer comes from the Rose & Funk knowledge base or uploaded documents, start with: "Based on your Rose & Funk documents..." or "According to your studio standards..."
+- If the answer is NOT in the knowledge base and you're drawing from general knowledge, clearly say: "This isn't in your Rose & Funk knowledge base yet, but generally speaking..." or "I don't see this in your studio documents, but as a general guideline..."
+- If you have partial information from the knowledge base but are filling in gaps, say: "Your documents mention X, and more generally..."
+This helps the team know when to trust the answer as a Rose & Funk standard vs. general industry knowledge.
+
 CLARIFYING QUESTIONS — VERY IMPORTANT:
 When a question is vague, about a specific situation, involves a client, or where the best answer depends on context — ask clarifying questions before answering.
 
@@ -131,10 +138,10 @@ ${docsText ? `UPLOADED DOCUMENTS:\n${docsText}` : ""}`;
     });
 
     const data = await response.json();
-    if (data.error) return res.status(200).json({ reply: `Error: ${data.error.message}`, type: "answer" });
-    
+    if (data.error) return res.status(200).json({ type: "answer", text: `Error: ${data.error.message}` });
+
     const raw = data.content?.[0]?.text || "";
-    
+
     try {
       const cleaned = raw.replace(/```json|```/g, "").trim();
       const parsed = JSON.parse(cleaned);
