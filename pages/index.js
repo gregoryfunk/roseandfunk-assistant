@@ -9,10 +9,10 @@ const ALLOWED_DOMAIN = "roseandfunk.com";
 
 const TABS = ["Chat", "Estimator", "Furnishings", "Knowledge Base", "Procedures"];
 
-const C = {
-  bg: "#0f0e0c", surface: "#1a1814", border: "#2a2620",
-  gold: "#c8a96e", text: "#f0ebe3", muted: "#d4cdc4",
-  dim: "#8a7a65", faint: "#3a3028", red: "#c0614a"
+const C = { // Rose & Funk light theme
+  bg: "#EAE5DD", surface: "#F5F2ED", border: "#D4CFCA",
+  gold: "#A98D70", text: "#2C2420", muted: "#5C5048",
+  dim: "#9A8880", faint: "#E0D9D0", red: "#b5412e"
 };
 
 const ROOMS = [
@@ -1453,15 +1453,15 @@ const LoginScreen = ({ onLogin }) => {
   };
 
   const inputStyle = {
-    width: "100%", background: "#0f0e0c", border: "1px solid #2a2620",
-    borderRadius: 6, color: "#f0ebe3", padding: "12px 14px", fontSize: 15,
+    width: "100%", background: "#EAE5DD", border: "1px solid #D4CFCA",
+    borderRadius: 6, color: "#2C2420", padding: "12px 14px", fontSize: 15,
     outline: "none", fontFamily: "'Archivo', sans-serif", boxSizing: "border-box",
     marginBottom: 12,
   };
 
   return (
     <div style={{
-      minHeight: "100vh", background: "#0f0e0c", display: "flex",
+      minHeight: "100vh", background: "#EAE5DD", display: "flex",
       alignItems: "center", justifyContent: "center", fontFamily: "'Archivo', sans-serif",
       padding: 24,
     }}>
@@ -1469,12 +1469,12 @@ const LoginScreen = ({ onLogin }) => {
         {/* Logo */}
         <div style={{ textAlign: "center", marginBottom: 40 }}>
           <img src="/logo.png" alt="Rose & Funk" style={{ height: 56, objectFit: "contain", marginBottom: 12 }} />
-          <div style={{ fontSize: 10, letterSpacing: 4, color: "#8a7a65" }}>STUDIO ASSISTANT</div>
+          <div style={{ fontSize: 10, letterSpacing: 4, color: "#9A8880" }}>STUDIO ASSISTANT</div>
         </div>
 
         {/* Card */}
-        <div style={{ background: "#1a1814", border: "1px solid #2a2620", borderRadius: 10, padding: "32px 28px" }}>
-          <div style={{ fontSize: 13, letterSpacing: 1, color: "#8a7a65", marginBottom: 24, textAlign: "center", fontFamily: "'Playfair Display', serif" }}>
+        <div style={{ background: "#F5F2ED", border: "1px solid #D4CFCA", borderRadius: 10, padding: "32px 28px" }}>
+          <div style={{ fontSize: 13, letterSpacing: 1, color: "#9A8880", marginBottom: 24, textAlign: "center", fontFamily: "'Playfair Display', serif" }}>
             {mode === "login" && "SIGN IN"}
             {mode === "signup" && "CREATE ACCOUNT"}
             {mode === "reset" && "RESET PASSWORD"}
@@ -1513,7 +1513,7 @@ const LoginScreen = ({ onLogin }) => {
             onClick={handleSubmit}
             disabled={loading}
             style={{
-              width: "100%", background: "#c8a96e", color: "#0f0e0c", border: "none",
+              width: "100%", background: "#A98D70", color: "#F5F2ED", border: "none",
               borderRadius: 6, padding: "13px", cursor: loading ? "not-allowed" : "pointer",
               fontSize: 12, letterSpacing: 2, fontFamily: "'Playfair Display', serif",
               opacity: loading ? 0.7 : 1, marginBottom: 20,
@@ -1565,8 +1565,8 @@ export default function RootApp() {
 
   if (authLoading) {
     return (
-      <div style={{ minHeight: "100vh", background: "#0f0e0c", display: "flex", alignItems: "center", justifyContent: "center" }}>
-        <div style={{ fontSize: 11, letterSpacing: 3, color: "#8a7a65" }}>LOADING…</div>
+      <div style={{ minHeight: "100vh", background: "#EAE5DD", display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <div style={{ fontSize: 11, letterSpacing: 3, color: "#9A8880" }}>LOADING…</div>
       </div>
     );
   }
