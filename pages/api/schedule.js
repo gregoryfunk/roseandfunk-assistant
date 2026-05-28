@@ -4,88 +4,110 @@ export const config = { maxDuration: 60 };
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SUPABASE_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
-// ── Date Helpers ─────────────────────────────────────────────────────────────
-
-// BC holidays 2026
-const HOLIDAYS_2026 = new Set([
-  "2026-01-01", "2026-02-16", "2026-04-03", "2026-05-18",
-  "2026-07-01", "2026-08-03", "2026-09-07", "2026-10-12",
-  "2026-11-11", "2026-12-25", "2026-12-26",
+// ── BC Holidays 2026 ──────────────────────────────────────────────────────────
+const HOLIDAYS = new Set([
+  "2026-01-01","2026-02-16","2026-04-03","2026-05-18",
+  "2026-07-01","2026-08-03","2026-09-07","2026-10-12",
+  "2026-11-11","2026-12-25","2026-12-26",
 ]);
 
-const toYMD = (d) => d.toISOString().slice(0, 10);
+const toYMD = (d) => {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+};
 
-const isHoliday = (d) => HOLIDAYS_2026.has(toYMD(d));
+// Tue=2, Wed=3, Thu=4, Fri=5 only — no Mon, no Sun, no holidays
+const isMeetingDay = (d) => {
+  const day = d.getDay();
+  return day >= 2 && day <= 5 && !HOLIDAYS.has(toYMD(d));
+};
 
-// Valid work day: Tue–Fri, not a holiday
+// Work day: Tue–Fri, no holidays (design blocks can also go Mon but we keep it simple)
 const isWorkDay = (d) => {
   const day = d.getDay();
-  return day >= 2 && day <= 5 && !isHoliday(d);
+  return day >= 2 && day <= 5 && !HOLIDAYS.has(toYMD(d));
 };
 
-// Valid meeting day: Tue–Fri, not a holiday
-const isMeetingDay = (d) => isWorkDay(d);
-
-// Add n work days (skips Sun, Mon, holidays)
-const addWorkDays = (date, n) => {
-  let d = new Date(date);
-  let added = 0;
-  while (added < n) {
-    d.setDate(d.getDate() + 1);
-    if (isWorkDay(d)) added++;
-  }
-  return d;
-};
-
-// Next valid meeting day on or after date (prefer Friday for big mtgs)
-const nextMeetingDay = (date, preferFriday = false) => {
-  let d = new Date(date);
-  if (preferFriday) {
-    let search = new Date(d);
-    for (let i = 0; i < 7; i++) {
-      if (search.getDay() === 5 && isMeetingDay(search)) return search;
-      search.setDate(search.getDate() + 1);
-    }
-  }
+// Advance to next valid meeting day
+const nextMeetingDay = (date) => {
+  const d = new Date(date);
   while (!isMeetingDay(d)) d.setDate(d.getDate() + 1);
   return d;
 };
 
-// 3 meeting date options spaced out, all Tue–Fri, no holidays
-const getMeetingOptions = (baseDate, count = 3) => {
-  const options = [];
-  let d = nextMeetingDay(new Date(baseDate));
-  for (let i = 0; i < count; i++) {
-    options.push(toYMD(d));
-    // Space next option: if Fri skip to Tue, else add 2 days
-    d = new Date(d);
-    d.setDate(d.getDate() + (d.getDay() === 5 ? 4 : 2));
-    while (!isMeetingDay(d)) d.setDate(d.getDate() + 1);
+// Advance to next Friday that's a valid meeting day (within 7 days, else next meetingday)
+const nextFriday = (date) => {
+  const d = new Date(date);
+  for (let i = 0; i < 10; i++) {
+    if (d.getDay() === 5 && isMeetingDay(d)) return d;
+    d.setDate(d.getDate() + 1);
   }
-  return options;
+  return nextMeetingDay(date);
 };
 
-// Check if designer is booked on a date
-const isDesignerBooked = (dateStr, bookedDays) => bookedDays.includes(dateStr);
-
-// Next available work day for designer
-const nextAvailableWorkDay = (date, bookedDays) => {
-  let d = new Date(date);
-  while (!isWorkDay(d) || isDesignerBooked(toYMD(d), bookedDays)) {
+// Add n work days, skipping Sun+Mon+holidays, and also skipping designer's booked days
+const addWorkDays = (date, n, bookedDays = []) => {
+  const d = new Date(date);
+  let added = 0;
+  while (added < n) {
     d.setDate(d.getDate() + 1);
+    const ymd = toYMD(d);
+    // Work days are Tue-Fri and not holiday and not booked
+    const day = d.getDay();
+    if (day >= 2 && day <= 5 && !HOLIDAYS.has(ymd) && !bookedDays.includes(ymd)) {
+      added++;
+    }
   }
   return d;
 };
 
-// ── Supabase helpers ─────────────────────────────────────────────────────────
+// Get 3 meeting date options — all must be Tue-Fri, no holidays, no gregory away
+const getMeetingOptions = (baseDate, gregoryAbsences = [], count = 3) => {
+  const options = [];
+  let d = nextMeetingDay(new Date(baseDate));
+  // Skip gregory away
+  while (gregoryAbsences.includes(toYMD(d))) {
+    d.setDate(d.getDate() + 1);
+    d = nextMeetingDay(d);
+  }
+  
+  while (options.length < count) {
+    const ymd = toYMD(d);
+    if (isMeetingDay(d) && !gregoryAbsences.includes(ymd)) {
+      options.push(ymd);
+    }
+    // Move to next valid meeting day (always skip Sun AND Mon)
+    d.setDate(d.getDate() + 1);
+    d = nextMeetingDay(d);
+  }
+  return options;
+};
 
-async function getDesignerAvailability(designer, startDate, endDate) {
-  if (!SUPABASE_URL || !SUPABASE_KEY) return [];
+// ── Supabase ──────────────────────────────────────────────────────────────────
+async function fetchAvailability(designer, startDate, endDate) {
+  if (!SUPABASE_URL || !SUPABASE_KEY) return { bookedDays: [], absences: [] };
   try {
     const url = `${SUPABASE_URL}/rest/v1/designer_availability?designer=eq.${designer.toLowerCase()}&date=gte.${startDate}&date=lte.${endDate}&select=date,type&order=date.asc`;
     const res = await fetch(url, { headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` } });
+    if (!res.ok) return { bookedDays: [], absences: [] };
+    const data = await res.json();
+    return {
+      bookedDays: data.filter(d => d.type === "design_block").map(d => d.date),
+      absences: data.filter(d => d.type === "absence").map(d => d.date),
+    };
+  } catch { return { bookedDays: [], absences: [] }; }
+}
+
+async function fetchGregoryAbsences(startDate, endDate) {
+  if (!SUPABASE_URL || !SUPABASE_KEY) return [];
+  try {
+    const url = `${SUPABASE_URL}/rest/v1/designer_availability?designer=eq.gregory&date=gte.${startDate}&date=lte.${endDate}&type=eq.absence&select=date`;
+    const res = await fetch(url, { headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` } });
     if (!res.ok) return [];
-    return await res.json();
+    const data = await res.json();
+    return data.map(d => d.date);
   } catch { return []; }
 }
 
@@ -101,47 +123,55 @@ async function getLastSyncTime() {
 }
 
 // ── Schedule Builders ─────────────────────────────────────────────────────────
-
 function buildIDSchedule(clientName, contractDate, bookedDays, gregoryAbsences) {
   const schedule = [];
   const conflicts = [];
   let cursor = new Date(contractDate + "T12:00:00");
 
+  // Helper: add a design block
   const block = (phase, label, days, notes) => {
-    cursor = nextAvailableWorkDay(addWorkDays(cursor, 1), bookedDays);
-    const start = toYMD(cursor);
-    // Advance cursor by remaining days
-    for (let i = 1; i < days; i++) {
-      cursor = nextAvailableWorkDay(addWorkDays(cursor, 1), bookedDays);
+    // Start next work day after cursor, skipping booked days
+    let start = new Date(cursor);
+    start.setDate(start.getDate() + 1);
+    // Skip to valid work day not booked
+    while (true) {
+      const day = start.getDay();
+      const ymd = toYMD(start);
+      if (day >= 2 && day <= 5 && !HOLIDAYS.has(ymd) && !bookedDays.includes(ymd)) break;
+      if (bookedDays.includes(ymd)) conflicts.push(`${ymd}: booked (${label})`);
+      start.setDate(start.getDate() + 1);
     }
-    schedule.push({ phase, label: `Design ${clientName} | ${label}`, type: "design", date: start, days, notes });
+    const startYMD = toYMD(start);
+    // Advance cursor by remaining days, skipping booked
+    cursor = new Date(start);
+    for (let i = 1; i < days; i++) {
+      cursor = addWorkDays(cursor, 1, bookedDays);
+    }
+    schedule.push({ phase, label: `Design ${clientName} | ${label}`, type: "design", date: startYMD, days, notes });
   };
 
+  // Helper: add a meeting with 3 options
   const meeting = (phase, label, durationHrs, notes, preferFriday = false) => {
-    // Meetings go after current cursor, skipping gregory away days
-    let base = addWorkDays(cursor, 1);
-    // Skip gregory away days for meetings
-    while (!isMeetingDay(base) || gregoryAbsences.includes(toYMD(base))) {
+    let base = new Date(cursor);
+    base.setDate(base.getDate() + 1);
+    base = nextMeetingDay(base);
+    while (gregoryAbsences.includes(toYMD(base))) {
       base.setDate(base.getDate() + 1);
+      base = nextMeetingDay(base);
     }
-    const options = getMeetingOptions(base);
-    // Filter out gregory away days from options
-    const cleanOptions = options.filter(o => !gregoryAbsences.includes(o));
-    while (cleanOptions.length < 3) {
-      const last = new Date(cleanOptions[cleanOptions.length - 1] || toYMD(base));
-      last.setDate(last.getDate() + 2);
-      while (!isMeetingDay(last) || gregoryAbsences.includes(toYMD(last))) last.setDate(last.getDate() + 1);
-      cleanOptions.push(toYMD(last));
-    }
+    if (preferFriday) base = nextFriday(base);
+
+    const options = getMeetingOptions(base, gregoryAbsences);
     const hour = durationHrs >= 3 ? 11 : 10;
     const endHour = hour + Math.ceil(durationHrs);
     schedule.push({
       phase, label: `RF ${clientName} | ${label}`, type: "meeting",
-      date: cleanOptions[0], startTime: `${String(hour).padStart(2,"0")}:00`,
+      date: options[0],
+      startTime: `${String(hour).padStart(2,"0")}:00`,
       endTime: `${String(endHour).padStart(2,"0")}:00`,
-      days: 1, notes, options: cleanOptions, selectedOption: 0,
+      days: 1, notes, options, selectedOption: 0,
     });
-    cursor = new Date(cleanOptions[0] + "T12:00:00");
+    cursor = new Date(options[0] + "T12:00:00");
   };
 
   // PRE-DESIGN
@@ -167,16 +197,16 @@ function buildIDSchedule(clientName, contractDate, bookedDays, gregoryAbsences) 
   block("Phase 3", "Concept Exterior", 1, "2 hrs Gregory");
   meeting("Phase 3", "Material Confirmation Meeting", 3, "Gregory + Designer + Client · 3 hrs · Prefer Friday 11am or 1pm", true);
 
-  // PHASE 4 — 3D rendering window (15 calendar days)
-  const renderStart = addWorkDays(cursor, 2);
-  const renderEnd = new Date(renderStart);
-  renderEnd.setDate(renderEnd.getDate() + 15);
-  cursor = renderEnd;
+  // PHASE 4 — 3D rendering: 15 calendar days
+  const renderStart = new Date(cursor);
+  renderStart.setDate(renderStart.getDate() + 2);
   schedule.push({
     phase: "Phase 4", label: `Design ${clientName} | 3D Rendering (external)`,
     type: "design", date: toYMD(renderStart), days: 15,
     notes: "2–3 weeks external rendering · client review period",
   });
+  cursor = new Date(renderStart);
+  cursor.setDate(cursor.getDate() + 15);
 
   block("Phase 4", "Material Confirmation Revisions", 1, "Designer");
   block("Phase 4", "Complete Remaining Elevations", 3, "Designer");
@@ -200,22 +230,28 @@ function buildFurnishingsSchedule(clientName, contractDate, bookedDays, gregoryA
   let cursor = new Date(contractDate + "T12:00:00");
 
   const block = (phase, label, days, notes) => {
-    cursor = nextAvailableWorkDay(addWorkDays(cursor, 1), bookedDays);
-    const start = toYMD(cursor);
-    for (let i = 1; i < days; i++) cursor = nextAvailableWorkDay(addWorkDays(cursor, 1), bookedDays);
-    schedule.push({ phase, label: `Design ${clientName} | ${label}`, type: "design", date: start, days, notes });
+    let start = new Date(cursor);
+    start.setDate(start.getDate() + 1);
+    while (true) {
+      const day = start.getDay();
+      const ymd = toYMD(start);
+      if (day >= 2 && day <= 5 && !HOLIDAYS.has(ymd) && !bookedDays.includes(ymd)) break;
+      if (bookedDays.includes(ymd)) conflicts.push(`${ymd}: booked (${label})`);
+      start.setDate(start.getDate() + 1);
+    }
+    const startYMD = toYMD(start);
+    cursor = new Date(start);
+    for (let i = 1; i < days; i++) cursor = addWorkDays(cursor, 1, bookedDays);
+    schedule.push({ phase, label: `Design ${clientName} | ${label}`, type: "design", date: startYMD, days, notes });
   };
 
   const meeting = (phase, label, durationHrs, notes, preferFriday = false) => {
-    let base = addWorkDays(cursor, 1);
-    while (!isMeetingDay(base) || gregoryAbsences.includes(toYMD(base))) base.setDate(base.getDate() + 1);
-    const options = getMeetingOptions(base).filter(o => !gregoryAbsences.includes(o));
-    while (options.length < 3) {
-      const last = new Date(options[options.length - 1]);
-      last.setDate(last.getDate() + 2);
-      while (!isMeetingDay(last) || gregoryAbsences.includes(toYMD(last))) last.setDate(last.getDate() + 1);
-      options.push(toYMD(last));
-    }
+    let base = new Date(cursor);
+    base.setDate(base.getDate() + 1);
+    base = nextMeetingDay(base);
+    while (gregoryAbsences.includes(toYMD(base))) { base.setDate(base.getDate() + 1); base = nextMeetingDay(base); }
+    if (preferFriday) base = nextFriday(base);
+    const options = getMeetingOptions(base, gregoryAbsences);
     const hour = durationHrs >= 3 ? 11 : 10;
     schedule.push({
       phase, label: `RF ${clientName} | ${label}`, type: "meeting",
@@ -249,8 +285,8 @@ function buildFurnishingsSchedule(clientName, contractDate, bookedDays, gregoryA
   meeting("Phase 3 | Accessories", "Art & Accessory Concept Meeting", 1.5, "Gregory + Designer + Client · 1.5 hrs");
   block("Phase 3 | Accessories", "Art & Accessory Board Revisions", 1, "Designer");
 
-  // PHASE 4 — 14 days for delivery/orders
-  cursor = addWorkDays(cursor, 14);
+  // PHASE 4 — wait ~14 days for orders/delivery
+  cursor.setDate(cursor.getDate() + 14);
   meeting("Phase 4 | Installation", "Furniture Set-Up Day", 7, "Gregory + Designer · Full day on site");
   meeting("Phase 4 | Installation", "Accessory Install Day", 7, "Gregory + Designer · Full day on site");
   meeting("Phase 4 | Installation", "Photoshoot Day", 6, "Gregory + Designer + Photographer");
@@ -259,40 +295,26 @@ function buildFurnishingsSchedule(clientName, contractDate, bookedDays, gregoryA
 }
 
 // ── Handler ───────────────────────────────────────────────────────────────────
-
 export default async function handler(req, res) {
   if (req.method !== "POST") return res.status(405).end();
   const { action, clientName, projectType, contractDate, designer, events, revision } = req.body;
 
   if (action === "generate_schedule") {
-    const startDate = contractDate;
     const endDate = new Date(new Date(contractDate + "T12:00:00").getTime() + 220 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
 
-    const [availData, lastSync] = await Promise.all([
-      getDesignerAvailability(designer, startDate, endDate),
+    const [{ bookedDays, absences }, gregoryAbsences, lastSync] = await Promise.all([
+      fetchAvailability(designer, contractDate, endDate),
+      fetchGregoryAbsences(contractDate, endDate),
       getLastSyncTime(),
     ]);
-
-    const bookedDays = availData.filter(d => d.type === "design_block").map(d => d.date);
-    const gregoryAbsences = availData.filter(d => d.type === "absence" && d.designer === "gregory").map(d => d.date);
-
-    // Also fetch gregory absences separately
-    let gregAbs = [];
-    if (SUPABASE_URL && SUPABASE_KEY) {
-      try {
-        const url = `${SUPABASE_URL}/rest/v1/designer_availability?designer=eq.gregory&date=gte.${startDate}&date=lte.${endDate}&type=eq.absence&select=date`;
-        const r = await fetch(url, { headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` } });
-        if (r.ok) gregAbs = (await r.json()).map(d => d.date);
-      } catch {}
-    }
 
     const calendarNote = lastSync
       ? `✓ Calendar synced ${new Date(lastSync).toLocaleDateString("en-CA", { month: "short", day: "numeric" })}`
       : "⚠ Not synced — say 'sync calendar' in Chat";
 
     const result = projectType === "furnishings"
-      ? buildFurnishingsSchedule(clientName, contractDate, bookedDays, gregAbs)
-      : buildIDSchedule(clientName, contractDate, bookedDays, gregAbs);
+      ? buildFurnishingsSchedule(clientName, contractDate, bookedDays, gregoryAbsences)
+      : buildIDSchedule(clientName, contractDate, bookedDays, gregoryAbsences);
 
     return res.status(200).json({ ...result, calendarNote });
   }
@@ -312,26 +334,22 @@ export default async function handler(req, res) {
       body: JSON.stringify({
         model: "claude-sonnet-4-5",
         max_tokens: 2000,
-        system: `You are a scheduling assistant for Rose & Funk interior design studio. Help adjust project schedules. Rules: no meetings on Mondays, client meetings Tue-Fri only, skip BC holidays. Be concise and give specific dates.`,
+        system: "You are a scheduling assistant for Rose & Funk interior design studio. Help adjust project schedules. No meetings on Mondays or Sundays. Client meetings Tue-Fri only. Skip BC holidays. Be concise and give specific dates.",
         messages: [{
           role: "user",
-          content: `Current schedule (JSON): ${JSON.stringify((events || []).slice(0, 20))}\n\nRevision request: "${revision}"\n\nIf updating schedule, reply with JSON: {"schedule": [...same structure with updated dates...], "message": "what changed"}. Otherwise reply with plain text.`
+          content: `Current schedule: ${JSON.stringify((events || []).slice(0, 20))}\n\nRevision: "${revision}"\n\nIf updating schedule reply with JSON: {"schedule":[...],"message":"what changed"}. Otherwise reply plain text.`
         }],
       }),
     });
-
     const data = await response.json();
     const text = data.content?.find(b => b.type === "text")?.text || "";
-
     try {
-      const start = text.indexOf("{");
-      const end = text.lastIndexOf("}");
-      if (start !== -1 && end > start) {
-        const parsed = JSON.parse(text.slice(start, end + 1));
-        if (parsed.schedule) return res.status(200).json({ schedule: parsed.schedule, message: parsed.message || "Schedule updated." });
+      const s = text.indexOf("{"), e = text.lastIndexOf("}");
+      if (s !== -1 && e > s) {
+        const parsed = JSON.parse(text.slice(s, e + 1));
+        if (parsed.schedule) return res.status(200).json({ schedule: parsed.schedule, message: parsed.message || "Updated." });
       }
     } catch {}
-
     return res.status(200).json({ message: text });
   }
 
