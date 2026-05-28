@@ -1145,9 +1145,9 @@ const getMeetingOptions = (baseDate, count = 3) => {
   let d = nextMeetingDay(new Date(baseDate));
   for (let i = 0; i < count; i++) {
     options.push(new Date(d));
-    // Next option: 1–2 days later, still Tue–Fri
+    // Thu+2=Sat so use +3; everyone else +2. Then skip past Sun/Mon.
     d = new Date(d);
-    d.setDate(d.getDate() + (d.getDay() === 4 ? 4 : d.getDay() === 5 ? 4 : 2)); // skip Mon
+    d.setDate(d.getDate() + (d.getDay() === 4 ? 3 : 2));
     while (d.getDay() === 0 || d.getDay() === 1) d.setDate(d.getDate() + 1);
   }
   return options;
