@@ -822,22 +822,28 @@ const FurnishingsEstimator = () => {
 
   const addClass = (room) => {
     if (rooms.find(r => r.id === room.id)) return;
-    setRooms(r => [...r, { ...room, roomClass: "Major" }]);
+    setRooms(r => [...r, { ...room, roomClass: "Major", qty: 1 }]);
   };
   const setRoomClass = (id, roomClass) => setRooms(r => r.map(rm => rm.id === id ? { ...rm, roomClass } : rm));
+  const updateQty = (id, delta) => setRooms(r => r.map(rm => rm.id === id ? { ...rm, qty: Math.max(1, (rm.qty || 1) + delta) } : rm));
   const removeRoom = (id) => setRooms(r => r.filter(rm => rm.id !== id));
 
+  // Each unit of a Major room occupies its own slot in the progressive discount sequence
   let majorCount = 0;
   const roomsWithPrices = rooms.map(r => {
-    let price;
+    const qty = r.qty || 1;
     if (r.roomClass === "Major") {
-      const discountIdx = Math.min(majorCount, MAJOR_DISCOUNT.length - 1);
-      price = r.basePrice * MAJOR_DISCOUNT[discountIdx];
-      majorCount++;
+      const unitPrices = [];
+      for (let i = 0; i < qty; i++) {
+        const discountIdx = Math.min(majorCount, MAJOR_DISCOUNT.length - 1);
+        unitPrices.push(r.basePrice * MAJOR_DISCOUNT[discountIdx]);
+        majorCount++;
+      }
+      return { ...r, qty, price: unitPrices.reduce((s, p) => s + p, 0), unitPrices, majorStartIdx: majorCount - qty };
     } else {
-      price = r.basePrice * CLASS_FACTORS[r.roomClass];
+      const unitPrice = r.basePrice * CLASS_FACTORS[r.roomClass];
+      return { ...r, qty, price: unitPrice * qty, unitPrices: Array(qty).fill(unitPrice) };
     }
-    return { ...r, price };
   });
 
   const roomsTotal = roomsWithPrices.reduce((s, r) => s + r.price, 0);
@@ -872,9 +878,9 @@ const FurnishingsEstimator = () => {
       <div class="fee-row"><span>Anchor Fee (Project Activation)</span><span><strong>${fmt(ANCHOR_FEE)}</strong></span></div>
       <div class="section">ROOM ADD-ONS</div>
       <table>
-        <tr><th>ROOM</th><th>CLASS</th><th>FEE</th></tr>
-        ${roomsWithPrices.map(r => `<tr><td>${r.label}</td><td>${r.roomClass}</td><td>${fmt(r.price)}</td></tr>`).join("")}
-        <tr><td colspan="2" style="font-size:12px;color:#8a7a65;">Room Total</td><td>${fmt(roomsTotal)}</td></tr>
+        <tr><th>ROOM</th><th>QTY</th><th>CLASS</th><th>FEE</th></tr>
+        ${roomsWithPrices.map(r => `<tr><td>${r.label}</td><td>${r.qty}</td><td>${r.roomClass}</td><td>${fmt(r.price)}</td></tr>`).join("")}
+        <tr><td colspan="3" style="font-size:12px;color:#8a7a65;">Room Total</td><td>${fmt(roomsTotal)}</td></tr>
       </table>
       <div class="fee-row" style="font-weight:bold;font-size:15px;border-top:2px solid #d4cdc4;padding-top:12px;margin-bottom:24px;">
         <span>TOTAL DESIGN FEE</span><span>${fmt(ANCHOR_FEE + roomsTotal)}</span>
@@ -965,17 +971,24 @@ const FurnishingsEstimator = () => {
         <div style={{ marginBottom: 24 }}>
           <div style={{ fontSize: 11, letterSpacing: 2, color: C.dim, marginBottom: 10 }}>SELECTED ROOMS</div>
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-            {roomsWithPrices.map((r, idx) => {
-              const majorIdx = roomsWithPrices.filter((x, i) => x.roomClass === "Major" && i <= idx).length - 1;
+            {roomsWithPrices.map((r) => {
+              const majorLabel = r.roomClass === "Major" && r.qty > 0
+                ? r.qty === 1
+                  ? `Major #${r.majorStartIdx + 1} — ${(MAJOR_DISCOUNT[Math.min(r.majorStartIdx, MAJOR_DISCOUNT.length - 1)] * 100).toFixed(0)}% rate`
+                  : `Major #${r.majorStartIdx + 1}–${r.majorStartIdx + r.qty} — ${r.unitPrices.map((p, i) => (MAJOR_DISCOUNT[Math.min(r.majorStartIdx + i, MAJOR_DISCOUNT.length - 1)] * 100).toFixed(0) + "%").join(", ")}`
+                : null;
               return (
-                <div key={r.id} style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 8, padding: "12px 16px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                  <div style={{ flex: 1 }}>
+                <div key={r.id} style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 8, padding: "12px 16px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontSize: 13, color: C.text }}>{r.label}</div>
-                    {r.roomClass === "Major" && majorIdx >= 0 && (
-                      <div style={{ fontSize: 10, color: C.dim, marginTop: 2 }}>Major #{majorIdx + 1} — {(MAJOR_DISCOUNT[Math.min(majorIdx, MAJOR_DISCOUNT.length - 1)] * 100).toFixed(0)}% rate</div>
-                    )}
+                    {majorLabel && <div style={{ fontSize: 10, color: C.dim, marginTop: 2 }}>{majorLabel}</div>}
                   </div>
-                  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                      <button onClick={() => updateQty(r.id, -1)} style={{ width: 22, height: 22, borderRadius: "50%", background: C.faint, border: `1px solid ${C.border}`, color: C.text, cursor: "pointer", fontSize: 14, display: "flex", alignItems: "center", justifyContent: "center" }}>−</button>
+                      <span style={{ fontSize: 13, color: C.text, minWidth: 18, textAlign: "center" }}>{r.qty}</span>
+                      <button onClick={() => updateQty(r.id, 1)} style={{ width: 22, height: 22, borderRadius: "50%", background: C.faint, border: `1px solid ${C.border}`, color: C.text, cursor: "pointer", fontSize: 14, display: "flex", alignItems: "center", justifyContent: "center" }}>+</button>
+                    </div>
                     <select value={r.roomClass} onChange={e => setRoomClass(r.id, e.target.value)} style={{
                       background: C.faint, border: `1px solid ${C.border}`, borderRadius: 4,
                       color: C.text, padding: "4px 8px", fontSize: 12, fontFamily: "'Archivo', sans-serif", cursor: "pointer"
@@ -1050,7 +1063,6 @@ const FurnishingsEstimator = () => {
           <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 8, padding: "20px 24px" }}>
             <div style={{ fontSize: 11, letterSpacing: 2, color: C.dim, marginBottom: 16 }}>ESTIMATE SUMMARY{clientName ? ` — ${clientName.toUpperCase()}` : ""}</div>
 
-            {/* Fee breakdown */}
             <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, color: C.muted, padding: "6px 0", borderBottom: `1px solid ${C.faint}` }}>
               <span>Anchor Fee</span><span>{fmt(ANCHOR_FEE)}</span>
             </div>
@@ -1063,7 +1075,6 @@ const FurnishingsEstimator = () => {
               <span>TOTAL DESIGN FEE</span><span style={{ color: C.gold }}>{fmt(designFee)}</span>
             </div>
 
-            {/* Phase schedule */}
             <div style={{ fontSize: 11, letterSpacing: 2, color: C.dim, marginBottom: 12 }}>PAYMENT SCHEDULE</div>
             <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 20 }}>
               {FURN_PHASES.map((p, i) => (
@@ -1075,7 +1086,6 @@ const FurnishingsEstimator = () => {
                   <div style={{ fontSize: 15, color: C.gold }}>{fmt(designFee * p.pct)}</div>
                 </div>
               ))}
-              {/* Phase 4 */}
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 14px", background: C.faint, borderRadius: 6 }}>
                 <div style={{ flex: 1 }}>
                   <div style={{ fontSize: 13, color: C.text }}>Phase 4</div>
@@ -1113,21 +1123,18 @@ const CONTACT_TYPES = ["Client", "Builder", "Trade", "Rep"];
 const fmtDate = (d) => d.toLocaleDateString("en-CA", { weekday: "short", month: "short", day: "numeric", year: "numeric" });
 const fmtTime = (d) => d.toLocaleTimeString("en-CA", { hour: "numeric", minute: "2-digit", hour12: true });
 
-// Add business days (Tue–Fri only, no Mondays)
 const addWorkDays = (date, days) => {
   let d = new Date(date);
   let added = 0;
   while (added < days) {
     d.setDate(d.getDate() + 1);
-    if (d.getDay() !== 0) added++; // skip Sun only — Mon is valid for design blocks
+    if (d.getDay() !== 0) added++;
   }
   return d;
 };
 
-// Get next valid meeting day (Tue–Fri) on or after date
 const nextMeetingDay = (date, preferFriday = false) => {
   let d = new Date(date);
-  // If preferFriday, look for next Friday within 5 days, else just next Tue-Fri
   if (preferFriday) {
     for (let i = 0; i < 7; i++) {
       if (d.getDay() === 5) return d;
@@ -1139,13 +1146,11 @@ const nextMeetingDay = (date, preferFriday = false) => {
   return d;
 };
 
-// Generate 3 meeting date options (spaced 1–2 days apart, all Tue–Fri)
 const getMeetingOptions = (baseDate, count = 3) => {
   const options = [];
   let d = nextMeetingDay(new Date(baseDate));
   for (let i = 0; i < count; i++) {
     options.push(new Date(d));
-    // Thu+2=Sat so use +3; everyone else +2. Then skip past Sun/Mon.
     d = new Date(d);
     d.setDate(d.getDate() + (d.getDay() === 4 ? 3 : 2));
     while (d.getDay() === 0 || d.getDay() === 1) d.setDate(d.getDate() + 1);
@@ -1153,67 +1158,48 @@ const getMeetingOptions = (baseDate, count = 3) => {
   return options;
 };
 
-// Build time string for event
 const withTime = (date, hour, min = 0) => {
   const d = new Date(date);
   d.setHours(hour, min, 0, 0);
   return d;
 };
 
-// Generate full ID Construction schedule
 const buildIDSchedule = (clientName, contractDate) => {
   const start = new Date(contractDate);
   const events = [];
   let cursor = new Date(start);
 
-  // PRE-DESIGN
   cursor = addWorkDays(start, 1);
   events.push({ phase: "Pre-Design", type: "block", label: `Design ${clientName} | Initial Drawing Set-up`, start: withTime(cursor, 9), end: withTime(cursor, 17), days: 3, notes: "Designer — 3 days drawing set-up" });
 
-  // PHASE 1 — Initial Meeting options
   cursor = addWorkDays(cursor, 3);
   const initialMtgOptions = getMeetingOptions(cursor);
   events.push({ phase: "Phase 1", type: "meeting", label: `RF ${clientName} | Initial Meeting 1.1`, durationHrs: 1.5, options: initialMtgOptions, selectedOption: 0, notes: "Gregory + Designer + Client · 1.5 hrs · Zoom or in-person" });
 
-  // After initial meeting: Aesthetic Direction work (2 days)
   events.push({ phase: "Phase 1", type: "block", label: `Design ${clientName} | Aesthetic Direction`, days: 2, offsetFromPrev: 1, notes: "Gregory OFF 9am–4pm · Designer invited · No client meetings" });
-
-  // Aesthetic Direction Meeting options
   events.push({ phase: "Phase 1", type: "meeting", label: `RF ${clientName} | Aesthetic Direction Meeting`, durationHrs: 1.5, offsetFromPrevBlock: 1, options: [], selectedOption: 0, notes: "Gregory + Designer + Client · 1.5 hrs" });
-
-  // Appliance & Plumbing Meeting (same week or next)
   events.push({ phase: "Phase 1", type: "meeting", label: `RF ${clientName} | Appliance + Plumbing Meeting`, durationHrs: 4, offsetFromPrev: 2, options: [], selectedOption: 0, notes: "Gregory + Designer + Client · 4 hrs" });
 
-  // PHASE 2
   events.push({ phase: "Phase 2", type: "block", label: `Design ${clientName} | Team Material Concept`, days: 2, offsetFromPrev: 2, notes: "Gregory OFF 9am–4pm · Designer invited · No client meetings" });
   events.push({ phase: "Phase 2", type: "block", label: `Design ${clientName} | Complete Material Boards`, days: 2, offsetFromPrev: 1, notes: "Designer" });
   events.push({ phase: "Phase 2", type: "block", label: `Design ${clientName} | Lighting Concept Boards`, days: 2, offsetFromPrev: 1, notes: "Designer" });
   events.push({ phase: "Phase 2", type: "block", label: `Design ${clientName} | Sketch Elevations`, days: 1, offsetFromPrev: 1, notes: "Gregory OFF 9am–4pm · Designer invited · No client meetings" });
   events.push({ phase: "Phase 2", type: "block", label: `Design ${clientName} | Elevations in AutoCAD`, days: 2, offsetFromPrev: 1, notes: "Designer" });
-
-  // Concept Elevation + Material Meeting
   events.push({ phase: "Phase 2", type: "meeting", label: `RF ${clientName} | Concept Elevation + Material Meeting`, durationHrs: 4, offsetFromPrevBlock: 1, options: [], selectedOption: 0, notes: "Gregory + Designer + Client · 4 hrs · Prefer Friday at 11am or 1pm" });
 
-  // PHASE 3
   events.push({ phase: "Phase 3", type: "block", label: `Design ${clientName} | Concept Revisions + Material Boards`, days: 2, offsetFromPrev: 2, notes: "1 day Gregory OFF 9am–4pm · Designer invited" });
   events.push({ phase: "Phase 3", type: "block", label: `Design ${clientName} | Documentation`, days: 3, offsetFromPrev: 1, notes: "Designer" });
   events.push({ phase: "Phase 3", type: "block", label: `Design ${clientName} | Concept Exterior`, days: 1, offsetFromPrev: 1, notes: "2 hrs Gregory" });
-
-  // Material Confirmation Meeting
   events.push({ phase: "Phase 3", type: "meeting", label: `RF ${clientName} | Material Confirmation Meeting`, durationHrs: 3, offsetFromPrevBlock: 1, options: [], selectedOption: 0, notes: "Gregory + Designer + Client · 3 hrs · Prefer Friday at 11am or 1pm" });
 
-  // PHASE 4
   events.push({ phase: "Phase 4", type: "block", label: `Design ${clientName} | 3D Rendering (external)`, days: 15, offsetFromPrev: 2, notes: "2–3 weeks for rendering · Client review period" });
   events.push({ phase: "Phase 4", type: "block", label: `Design ${clientName} | Material Confirmation Revisions`, days: 1, offsetFromPrev: 1, notes: "Designer" });
   events.push({ phase: "Phase 4", type: "block", label: `Design ${clientName} | Complete Remaining Elevations`, days: 3, offsetFromPrev: 4, notes: "3 client review days before this · Designer" });
   events.push({ phase: "Phase 4", type: "block", label: `Design ${clientName} | Drawing Details`, days: 1, offsetFromPrev: 1, notes: "Designer" });
   events.push({ phase: "Phase 4", type: "block", label: `Design ${clientName} | Dimension + Noting Elevations`, days: 2, offsetFromPrev: 1, notes: "Designer" });
   events.push({ phase: "Phase 4", type: "block", label: `Design ${clientName} | Plan Layouts`, days: 5, offsetFromPrev: 1, notes: "Designer" });
-
-  // Final Review Meeting
   events.push({ phase: "Phase 4", type: "meeting", label: `RF ${clientName} | Final Review Meeting`, durationHrs: 3, offsetFromPrevBlock: 1, options: [], selectedOption: 0, notes: "Gregory + Designer + Client · 3 hrs · Prefer Friday at 11am or 1pm" });
 
-  // POST FINAL
   events.push({ phase: "Post Final", type: "block", label: `Design ${clientName} | Client Adjustments + Send for Sign-off`, days: 1, offsetFromPrev: 3, notes: "Designer" });
   events.push({ phase: "Post Final", type: "block", label: `Design ${clientName} | Final Adjustments + Send to Print`, days: 2, offsetFromPrev: 4, notes: "3 client review days · Designer" });
   events.push({ phase: "Post Final", type: "block", label: `Design ${clientName} | Review Drawings + Gather`, days: 1, offsetFromPrev: 1, notes: "Gregory OFF 9am–4pm · Designer invited" });
@@ -1222,55 +1208,34 @@ const buildIDSchedule = (clientName, contractDate) => {
   return events;
 };
 
-// Generate full Furnishings schedule
 const buildFurnishingsSchedule = (clientName, contractDate) => {
   const start = new Date(contractDate);
   const events = [];
   let cursor = new Date(start);
 
-  // PRE-DESIGN
   cursor = addWorkDays(start, 1);
   events.push({ phase: "Pre-Design", type: "block", label: `Design ${clientName} | Drawing File Set-up`, days: 1, notes: "Admin + Designer · Set up drawing file, sheets, AutoCAD layout, book all meeting dates" });
 
-  // PHASE 1 — Initial Meeting
   cursor = addWorkDays(cursor, 2);
   const initialMtgOptions = getMeetingOptions(cursor);
   events.push({ phase: "Phase 1 | Concept", type: "meeting", label: `RF ${clientName} | Initial Meeting`, durationHrs: 1.5, options: initialMtgOptions, selectedOption: 0, notes: "Gregory + Designer + Client · 1.5 hrs · Review scope, budget, inspiration" });
 
-  // Sourcing — 2 days Gregory off
   events.push({ phase: "Phase 1 | Concept", type: "block", label: `Design ${clientName} | Sourcing`, days: 2, offsetFromPrev: 1, notes: "Gregory OFF both days 9am–4pm · Designer" });
-
-  // Furniture Mood Boards — 3 days girls, 1 day Gregory
   events.push({ phase: "Phase 1 | Concept", type: "block", label: `Design ${clientName} | Furniture Mood Boards`, days: 3, offsetFromPrev: 1, notes: "Designer 3 days · 1 day Gregory review" });
-
-  // Furniture Pricing
   events.push({ phase: "Phase 1 | Concept", type: "block", label: `Design ${clientName} | Furniture Pricing`, days: 1, offsetFromPrev: 1, notes: "Designer · Note all requested revisions" });
-
-  // Furniture Meeting
   events.push({ phase: "Phase 1 | Concept", type: "meeting", label: `RF ${clientName} | Furniture Meeting`, durationHrs: 2, offsetFromPrevBlock: 1, options: [], selectedOption: 0, notes: "Gregory + Designer + Client · 2 hrs · Present furniture boards + pricing" });
-
-  // Furniture Meeting Revisions
   events.push({ phase: "Phase 1 | Concept", type: "block", label: `Design ${clientName} | Furniture Meeting Revisions`, days: 1, offsetFromPrev: 1, notes: "Designer" });
 
-  // PHASE 2
   events.push({ phase: "Phase 2 | Finalize", type: "block", label: `Design ${clientName} | Enter Selections into Gather`, days: 1, offsetFromPrev: 1, notes: "Designer" });
   events.push({ phase: "Phase 2 | Finalize", type: "block", label: `Design ${clientName} | Order Samples`, days: 1, offsetFromPrev: 1, notes: "Designer" });
-
-  // Furniture & Fabric Confirmation Meeting — on site
   events.push({ phase: "Phase 2 | Finalize", type: "meeting", label: `RF ${clientName} | Furniture + Fabric Confirmation Meeting`, durationHrs: 1.5, offsetFromPrevBlock: 2, options: [], selectedOption: 0, notes: "Gregory + Designer + Client · 1.5 hrs · ON SITE · Include drapery measurement if applicable" });
-
   events.push({ phase: "Phase 2 | Finalize", type: "block", label: `Design ${clientName} | Confirmation Meeting Revisions`, days: 1, offsetFromPrev: 1, notes: "Designer" });
 
-  // PHASE 3 — Accessories
   events.push({ phase: "Phase 3 | Accessories", type: "block", label: `Design ${clientName} | Art Sourcing`, days: 1, offsetFromPrev: 2, notes: "Gregory OFF 9am–4pm · Designer" });
   events.push({ phase: "Phase 3 | Accessories", type: "block", label: `Design ${clientName} | Accessory + Art Concept Boards`, days: 1, offsetFromPrev: 1, notes: "Designer" });
-
-  // Accessory & Art Concept Meeting
   events.push({ phase: "Phase 3 | Accessories", type: "meeting", label: `RF ${clientName} | Accessory + Art Concept Meeting`, durationHrs: 1.5, offsetFromPrevBlock: 1, options: [], selectedOption: 0, notes: "Gregory + Designer + Client · 1.5 hrs · 3 business day client review after" });
-
   events.push({ phase: "Phase 3 | Accessories", type: "block", label: `Design ${clientName} | Accessory Board Revisions`, days: 1, offsetFromPrev: 4, notes: "Designer · After 3 business day client review" });
 
-  // PHASE 4 — Installation
   events.push({ phase: "Phase 4 | Installation", type: "meeting", label: `RF ${clientName} | Furniture Set-Up Day`, durationHrs: 7, offsetFromPrevBlock: 14, options: [], selectedOption: 0, notes: "Gregory + Designer · Full day on site · After all orders placed + delivered" });
   events.push({ phase: "Phase 4 | Installation", type: "meeting", label: `RF ${clientName} | Accessory Install Day`, durationHrs: 7, offsetFromPrev: 2, options: [], selectedOption: 0, notes: "Gregory + Designer · Full day on site" });
   events.push({ phase: "Phase 4 | Installation", type: "meeting", label: `RF ${clientName} | Photoshoot Day`, durationHrs: 6, offsetFromPrev: 3, options: [], selectedOption: 0, notes: "Gregory + Designer + Photographer" });
@@ -1278,16 +1243,13 @@ const buildFurnishingsSchedule = (clientName, contractDate) => {
   return events;
 };
 
-// Compute actual dates for all events based on selections
 const computeDates = (events) => {
   let cursor = null;
   return events.map((ev, i) => {
     if (ev.type === "meeting") {
       if (ev.options && ev.options.length > 0) {
-        // Has options — use selected
         cursor = new Date(ev.options[ev.selectedOption]);
       } else {
-        // Auto-place: offset from cursor
         const off = ev.offsetFromPrev || ev.offsetFromPrevBlock || 2;
         cursor = addWorkDays(cursor || new Date(), off);
         cursor = nextMeetingDay(cursor);
@@ -1295,13 +1257,11 @@ const computeDates = (events) => {
       const hour = ev.durationHrs >= 3 ? 11 : 10;
       return { ...ev, date: new Date(cursor), startTime: withTime(cursor, hour), endTime: withTime(cursor, hour + Math.ceil(ev.durationHrs)) };
     } else {
-      // Block event
       const off = ev.offsetFromPrev || ev.offsetFromPrevBlock || 1;
       if (cursor) cursor = addWorkDays(cursor, off);
       else cursor = new Date();
       while (cursor.getDay() === 0 || cursor.getDay() === 1) cursor.setDate(cursor.getDate() + 1);
       const blockStart = new Date(cursor);
-      // Advance cursor by days-1 more work days
       if (ev.days > 1) cursor = addWorkDays(cursor, ev.days - 1);
       return { ...ev, date: blockStart, startTime: withTime(blockStart, 9), endTime: withTime(blockStart, 17) };
     }
@@ -1328,7 +1288,7 @@ const ScheduleTab = () => {
   const [designer, setDesigner] = useState("Chloe");
   const [comparison, setComparison] = useState(null);
   const [events, setEvents] = useState([]);
-  const [step, setStep] = useState("setup"); // setup | loading | compare | review | finalizing | approved
+  const [step, setStep] = useState("setup");
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState("");
   const [conflicts, setConflicts] = useState([]);
@@ -1605,10 +1565,8 @@ const ScheduleTab = () => {
       )}
 
       {(step === "review" || step === "approved") && (() => {
-        // Calculate total project length
         const datesWithValues = events.filter(e => e.date).map(e => new Date(e.date));
         const firstDate = datesWithValues.length > 0 ? new Date(Math.min(...datesWithValues)) : null;
-        // For last date, account for multi-day blocks
         const lastDate = events.filter(e => e.date).reduce((latest, e) => {
           let end = new Date(e.date);
           if (e.days > 1) {
@@ -1748,7 +1706,6 @@ const ScheduleTab = () => {
             </div>
           )}
 
-          {/* Revision chat */}
           <div style={{ marginTop: 32, borderTop: `1px solid ${C.border}`, paddingTop: 20 }}>
             <div style={{ fontSize: 11, letterSpacing: 2, color: C.dim, marginBottom: 14 }}>SCHEDULE REVISIONS</div>
             <div style={{ fontSize: 12, color: C.dim, marginBottom: 14 }}>
@@ -1800,6 +1757,7 @@ const ScheduleTab = () => {
     </div>
   );
 };
+
 const ContactsTab = () => {
   const [contacts, setContacts] = useState([]);
   const [search, setSearch] = useState("");
@@ -1809,7 +1767,6 @@ const ContactsTab = () => {
   const [form, setForm] = useState({ first_name: "", last_name: "", email: "", phone: "", type: "Client", notes: "" });
   const [saving, setSaving] = useState(false);
   const [status, setStatus] = useState("");
-
   const [sortBy, setSortBy] = useState("first_name");
 
   useEffect(() => { loadContacts(); }, [sortBy]);
@@ -1863,8 +1820,6 @@ const ContactsTab = () => {
 
   return (
     <div style={{ flex: 1, maxWidth: 900, width: "100%", margin: "0 auto", padding: "24px 16px", overflowY: "auto" }}>
-
-      {/* Header row */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20, flexWrap: "wrap", gap: 12 }}>
         <div style={{ fontSize: 11, letterSpacing: 2, color: C.dim }}>CONTACTS — {contacts.length} total</div>
         <button onClick={() => { resetForm(); setShowForm(true); }} style={{ background: C.gold, color: C.bg, border: "none", borderRadius: 6, padding: "8px 18px", cursor: "pointer", fontSize: 12, fontFamily: "'Playfair Display', serif", letterSpacing: 1 }}>
@@ -1872,7 +1827,6 @@ const ContactsTab = () => {
         </button>
       </div>
 
-      {/* Add / Edit form */}
       {showForm && (
         <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 8, padding: "20px 24px", marginBottom: 24 }}>
           <div style={{ fontSize: 12, letterSpacing: 2, color: C.dim, marginBottom: 16 }}>{editingId ? "EDIT CONTACT" : "NEW CONTACT"}</div>
@@ -1902,43 +1856,19 @@ const ContactsTab = () => {
         </div>
       )}
 
-      {/* Search + filter + sort */}
       <div style={{ display: "flex", gap: 10, marginBottom: 20, flexWrap: "wrap", alignItems: "center" }}>
-        <input
-          value={search} onChange={e => setSearch(e.target.value)}
-          placeholder="Search by name or email…"
-          style={{ ...inputStyle, flex: 1, minWidth: 200 }}
-        />
+        <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search by name or email…" style={{ ...inputStyle, flex: 1, minWidth: 200 }} />
         <div style={{ display: "flex", gap: 4, background: C.faint, borderRadius: 6, padding: 3 }}>
-          <button onClick={() => setSortBy("first_name")} style={{
-            background: sortBy === "first_name" ? C.surface : "transparent",
-            border: sortBy === "first_name" ? `1px solid ${C.border}` : "1px solid transparent",
-            borderRadius: 4, padding: "5px 12px", cursor: "pointer",
-            fontSize: 11, color: sortBy === "first_name" ? C.text : C.dim,
-            fontFamily: "'Archivo', sans-serif"
-          }}>First</button>
-          <button onClick={() => setSortBy("last_name")} style={{
-            background: sortBy === "last_name" ? C.surface : "transparent",
-            border: sortBy === "last_name" ? `1px solid ${C.border}` : "1px solid transparent",
-            borderRadius: 4, padding: "5px 12px", cursor: "pointer",
-            fontSize: 11, color: sortBy === "last_name" ? C.text : C.dim,
-            fontFamily: "'Archivo', sans-serif"
-          }}>Last</button>
+          <button onClick={() => setSortBy("first_name")} style={{ background: sortBy === "first_name" ? C.surface : "transparent", border: sortBy === "first_name" ? `1px solid ${C.border}` : "1px solid transparent", borderRadius: 4, padding: "5px 12px", cursor: "pointer", fontSize: 11, color: sortBy === "first_name" ? C.text : C.dim, fontFamily: "'Archivo', sans-serif" }}>First</button>
+          <button onClick={() => setSortBy("last_name")} style={{ background: sortBy === "last_name" ? C.surface : "transparent", border: sortBy === "last_name" ? `1px solid ${C.border}` : "1px solid transparent", borderRadius: 4, padding: "5px 12px", cursor: "pointer", fontSize: 11, color: sortBy === "last_name" ? C.text : C.dim, fontFamily: "'Archivo', sans-serif" }}>Last</button>
         </div>
         <div style={{ display: "flex", gap: 6 }}>
           {["All", ...CONTACT_TYPES].map(t => (
-            <button key={t} onClick={() => setFilterType(t)} style={{
-              background: filterType === t ? C.gold : "transparent",
-              color: filterType === t ? C.bg : C.dim,
-              border: `1px solid ${filterType === t ? C.gold : C.border}`,
-              borderRadius: 20, padding: "6px 14px", cursor: "pointer",
-              fontSize: 11, fontFamily: "'Archivo', sans-serif", letterSpacing: 0.5
-            }}>{t}</button>
+            <button key={t} onClick={() => setFilterType(t)} style={{ background: filterType === t ? C.gold : "transparent", color: filterType === t ? C.bg : C.dim, border: `1px solid ${filterType === t ? C.gold : C.border}`, borderRadius: 20, padding: "6px 14px", cursor: "pointer", fontSize: 11, fontFamily: "'Archivo', sans-serif", letterSpacing: 0.5 }}>{t}</button>
           ))}
         </div>
       </div>
 
-      {/* Contact list */}
       {filtered.length === 0 ? (
         <div style={{ textAlign: "center", color: C.dim, fontSize: 13, padding: "40px 0" }}>
           {contacts.length === 0 ? "No contacts yet — add your first one above." : "No contacts match your search."}
@@ -1947,10 +1877,7 @@ const ContactsTab = () => {
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
           {filtered.map(c => (
             <div key={c.id} style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 8, padding: "14px 18px", display: "flex", alignItems: "center", gap: 16 }}>
-              {/* Type badge */}
               <div style={{ width: 4, alignSelf: "stretch", borderRadius: 4, background: typeColor[c.type] || C.dim, flexShrink: 0 }} />
-
-              {/* Info */}
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
                   <div style={{ fontSize: 15, color: C.text, fontWeight: 500 }}>{c.first_name} {c.last_name}</div>
@@ -1962,8 +1889,6 @@ const ContactsTab = () => {
                 </div>
                 {c.notes && <div style={{ fontSize: 11, color: C.dim, marginTop: 4, fontStyle: "italic" }}>{c.notes}</div>}
               </div>
-
-              {/* Actions */}
               <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
                 <button onClick={() => startEdit(c)} style={{ background: "transparent", border: `1px solid ${C.border}`, borderRadius: 4, color: C.muted, fontSize: 11, padding: "4px 12px", cursor: "pointer", fontFamily: "'Archivo', sans-serif" }}>Edit</button>
                 <button onClick={() => deleteContact(c.id)} style={{ background: "transparent", border: `1px solid ${C.border}`, borderRadius: 4, color: C.red, fontSize: 11, padding: "4px 12px", cursor: "pointer", fontFamily: "'Archivo', sans-serif" }}>Delete</button>
@@ -2129,7 +2054,6 @@ function App({ user, onSignOut }) {
 
   const deleteDoc = async (id) => { await api({ action: "delete_document", id }); setDocuments(docs => docs.filter(d => d.id !== id)); };
 
-  // Shared tab content renderer used by both layouts
   const tabContent = (
     <>
       {tab === "Chat" && (
@@ -2257,7 +2181,6 @@ function App({ user, onSignOut }) {
     </>
   );
 
-  // ── Shared sidebar content ───────────────────────────────────────────────
   const sidebarContent = (
     <>
       <div style={{ padding: "16px 14px 8px", fontSize: 10, letterSpacing: 2, color: C.dim }}>RECENT SEARCHES</div>
@@ -2274,27 +2197,20 @@ function App({ user, onSignOut }) {
     </>
   );
 
-  // ── MOBILE LAYOUT ────────────────────────────────────────────────────────
   if (isMobile) {
     return (
       <div style={{ height: "100dvh", background: C.bg, color: C.text, fontFamily: "'Archivo', sans-serif", display: "flex", flexDirection: "column", overflow: "hidden" }}>
-        {/* Mobile header */}
         <div style={{ background: C.surface, borderBottom: `1px solid ${C.border}`, padding: "12px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
             <img src="/RF_LogoPrimary(Black)_RGB.png" alt="Rose & Funk" style={{ height: 24, objectFit: "contain" }} />
             <div style={{ fontSize: 10, color: C.dim, letterSpacing: 2, fontFamily: "'Playfair Display', serif" }}>STUDIO ASSISTANT</div>
           </div>
           <div style={{ display: "flex", gap: 8 }}>
-            <button onClick={() => setShowSearchDrawer(true)} style={{ background: "transparent", border: `1px solid ${C.border}`, borderRadius: 6, color: C.muted, fontSize: 11, padding: "6px 12px", cursor: "pointer", fontFamily: "'Archivo', sans-serif" }}>
-              History
-            </button>
-            <button onClick={onSignOut} style={{ background: "transparent", border: `1px solid ${C.border}`, borderRadius: 6, color: C.dim, fontSize: 11, padding: "6px 12px", cursor: "pointer", fontFamily: "'Archivo', sans-serif" }}>
-              Sign Out
-            </button>
+            <button onClick={() => setShowSearchDrawer(true)} style={{ background: "transparent", border: `1px solid ${C.border}`, borderRadius: 6, color: C.muted, fontSize: 11, padding: "6px 12px", cursor: "pointer", fontFamily: "'Archivo', sans-serif" }}>History</button>
+            <button onClick={onSignOut} style={{ background: "transparent", border: `1px solid ${C.border}`, borderRadius: 6, color: C.dim, fontSize: 11, padding: "6px 12px", cursor: "pointer", fontFamily: "'Archivo', sans-serif" }}>Sign Out</button>
           </div>
         </div>
 
-        {/* Search drawer overlay */}
         {showSearchDrawer && (
           <div style={{ position: "fixed", inset: 0, zIndex: 50, display: "flex" }}>
             <div style={{ flex: 1, background: "rgba(0,0,0,0.5)" }} onClick={() => setShowSearchDrawer(false)} />
@@ -2308,12 +2224,10 @@ function App({ user, onSignOut }) {
           </div>
         )}
 
-        {/* Tab content */}
         <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
           {tabContent}
         </div>
 
-        {/* Bottom nav */}
         <div style={{ background: C.surface, borderTop: `1px solid ${C.border}`, display: "flex", flexShrink: 0, paddingBottom: "env(safe-area-inset-bottom)" }}>
           {TABS.map(t => {
             const active = tab === t;
@@ -2325,11 +2239,7 @@ function App({ user, onSignOut }) {
                 fontFamily: "'Archivo', sans-serif", display: "flex", flexDirection: "column", alignItems: "center", gap: 2,
                 transition: "color 0.15s"
               }}>
-                <div style={{
-                  width: 28, height: 3, borderRadius: 2,
-                  background: active ? C.gold : "transparent",
-                  marginBottom: 4, transition: "background 0.15s"
-                }} />
+                <div style={{ width: 28, height: 3, borderRadius: 2, background: active ? C.gold : "transparent", marginBottom: 4, transition: "background 0.15s" }} />
                 <span style={{ fontSize: 10, letterSpacing: 0.8, fontWeight: active ? "bold" : "normal", fontFamily: "'Playfair Display', serif" }}>{label.toUpperCase()}</span>
               </button>
             );
@@ -2339,7 +2249,6 @@ function App({ user, onSignOut }) {
     );
   }
 
-  // ── DESKTOP LAYOUT ───────────────────────────────────────────────────────
   return (
     <div style={{ minHeight: "100vh", background: C.bg, color: C.text, fontFamily: "'Archivo', sans-serif", display: "flex", flexDirection: "column" }}>
       <div style={{ background: C.surface, borderBottom: `1px solid ${C.border}`, padding: "18px 24px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
@@ -2363,8 +2272,7 @@ function App({ user, onSignOut }) {
             <div style={{ fontSize: 11, color: C.dim }}>{user?.email?.split("@")[0]}</div>
             <button onClick={onSignOut} style={{
               background: "transparent", border: `1px solid ${C.border}`, borderRadius: 4,
-              color: C.dim, fontSize: 11, padding: "5px 12px", cursor: "pointer", fontFamily: "'Archivo', sans-serif",
-              letterSpacing: 1
+              color: C.dim, fontSize: 11, padding: "5px 12px", cursor: "pointer", fontFamily: "'Archivo', sans-serif", letterSpacing: 1
             }}>SIGN OUT</button>
           </div>
         </div>
@@ -2382,10 +2290,8 @@ function App({ user, onSignOut }) {
   );
 }
 
-// ── Login Screen ─────────────────────────────────────────────────────────────
-
 const LoginScreen = ({ onLogin }) => {
-  const [mode, setMode] = useState("login"); // "login" | "signup" | "reset"
+  const [mode, setMode] = useState("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -2421,9 +2327,7 @@ const LoginScreen = ({ onLogin }) => {
         setMessage("Check your email to confirm your account, then log in.");
         setMode("login");
       } else if (mode === "reset") {
-        const { error } = await supabase.auth.resetPasswordForEmail(email, {
-          redirectTo: window.location.origin,
-        });
+        const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: window.location.origin });
         if (error) throw error;
         setMessage("Password reset email sent. Check your inbox.");
         setMode("login");
@@ -2437,89 +2341,40 @@ const LoginScreen = ({ onLogin }) => {
   const inputStyle = {
     width: "100%", background: "#EAE5DD", border: "1px solid #D4CFCA",
     borderRadius: 6, color: "#2C2420", padding: "12px 14px", fontSize: 15,
-    outline: "none", fontFamily: "'Archivo', sans-serif", boxSizing: "border-box",
-    marginBottom: 12,
+    outline: "none", fontFamily: "'Archivo', sans-serif", boxSizing: "border-box", marginBottom: 12,
   };
 
   return (
-    <div style={{
-      minHeight: "100vh", background: "#EAE5DD", display: "flex",
-      alignItems: "center", justifyContent: "center", fontFamily: "'Archivo', sans-serif",
-      padding: 24,
-    }}>
+    <div style={{ minHeight: "100vh", background: "#EAE5DD", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'Archivo', sans-serif", padding: 24 }}>
       <div style={{ width: "100%", maxWidth: 380 }}>
-        {/* Logo */}
         <div style={{ textAlign: "center", marginBottom: 40 }}>
           <img src="/RF_LogoPrimary(Black)_RGB.png" alt="Rose & Funk" style={{ height: 36, objectFit: "contain", marginBottom: 12 }} />
           <div style={{ fontSize: 10, letterSpacing: 4, color: "#9A8880" }}>STUDIO ASSISTANT</div>
         </div>
-
-        {/* Card */}
         <div style={{ background: "#F5F2ED", border: "1px solid #D4CFCA", borderRadius: 10, padding: "32px 28px" }}>
           <div style={{ fontSize: 13, letterSpacing: 1, color: "#9A8880", marginBottom: 24, textAlign: "center", fontFamily: "'Playfair Display', serif" }}>
             {mode === "login" && "SIGN IN"}
             {mode === "signup" && "CREATE ACCOUNT"}
             {mode === "reset" && "RESET PASSWORD"}
           </div>
-
-          <input
-            type="email"
-            placeholder="you@roseandfunk.com"
-            value={email}
-            onChange={e => setEmail(e.target.value)}
-            onKeyDown={e => e.key === "Enter" && handleSubmit()}
-            style={inputStyle}
-            autoComplete="email"
-          />
-
+          <input type="email" placeholder="you@roseandfunk.com" value={email} onChange={e => setEmail(e.target.value)} onKeyDown={e => e.key === "Enter" && handleSubmit()} style={inputStyle} autoComplete="email" />
           {mode !== "reset" && (
-            <input
-              type="password"
-              placeholder="Password"
-              value={password}
-              onChange={e => setPassword(e.target.value)}
-              onKeyDown={e => e.key === "Enter" && handleSubmit()}
-              style={inputStyle}
-              autoComplete={mode === "login" ? "current-password" : "new-password"}
-            />
+            <input type="password" placeholder="Password" value={password} onChange={e => setPassword(e.target.value)} onKeyDown={e => e.key === "Enter" && handleSubmit()} style={inputStyle} autoComplete={mode === "login" ? "current-password" : "new-password"} />
           )}
-
-          {error && (
-            <div style={{ fontSize: 12, color: "#c0614a", marginBottom: 14, lineHeight: 1.5 }}>{error}</div>
-          )}
-          {message && (
-            <div style={{ fontSize: 12, color: "#c8a96e", marginBottom: 14, lineHeight: 1.5 }}>{message}</div>
-          )}
-
-          <button
-            onClick={handleSubmit}
-            disabled={loading}
-            style={{
-              width: "100%", background: "#A98D70", color: "#F5F2ED", border: "none",
-              borderRadius: 6, padding: "13px", cursor: loading ? "not-allowed" : "pointer",
-              fontSize: 12, letterSpacing: 2, fontFamily: "'Playfair Display', serif",
-              opacity: loading ? 0.7 : 1, marginBottom: 20,
-            }}
-          >
+          {error && <div style={{ fontSize: 12, color: "#c0614a", marginBottom: 14, lineHeight: 1.5 }}>{error}</div>}
+          {message && <div style={{ fontSize: 12, color: "#c8a96e", marginBottom: 14, lineHeight: 1.5 }}>{message}</div>}
+          <button onClick={handleSubmit} disabled={loading} style={{ width: "100%", background: "#A98D70", color: "#F5F2ED", border: "none", borderRadius: 6, padding: "13px", cursor: loading ? "not-allowed" : "pointer", fontSize: 12, letterSpacing: 2, fontFamily: "'Playfair Display', serif", opacity: loading ? 0.7 : 1, marginBottom: 20 }}>
             {loading ? "…" : mode === "login" ? "SIGN IN" : mode === "signup" ? "CREATE ACCOUNT" : "SEND RESET EMAIL"}
           </button>
-
-          {/* Mode switchers */}
           <div style={{ display: "flex", flexDirection: "column", gap: 10, alignItems: "center" }}>
             {mode === "login" && (
               <>
-                <button onClick={() => { setMode("signup"); setError(""); setMessage(""); }} style={{ background: "none", border: "none", color: "#8a7a65", fontSize: 12, cursor: "pointer", fontFamily: "'Archivo', sans-serif", textDecoration: "underline" }}>
-                  Create an account
-                </button>
-                <button onClick={() => { setMode("reset"); setError(""); setMessage(""); }} style={{ background: "none", border: "none", color: "#8a7a65", fontSize: 12, cursor: "pointer", fontFamily: "'Archivo', sans-serif", textDecoration: "underline" }}>
-                  Forgot password?
-                </button>
+                <button onClick={() => { setMode("signup"); setError(""); setMessage(""); }} style={{ background: "none", border: "none", color: "#8a7a65", fontSize: 12, cursor: "pointer", fontFamily: "'Archivo', sans-serif", textDecoration: "underline" }}>Create an account</button>
+                <button onClick={() => { setMode("reset"); setError(""); setMessage(""); }} style={{ background: "none", border: "none", color: "#8a7a65", fontSize: 12, cursor: "pointer", fontFamily: "'Archivo', sans-serif", textDecoration: "underline" }}>Forgot password?</button>
               </>
             )}
             {mode !== "login" && (
-              <button onClick={() => { setMode("login"); setError(""); setMessage(""); }} style={{ background: "none", border: "none", color: "#8a7a65", fontSize: 12, cursor: "pointer", fontFamily: "'Archivo', sans-serif", textDecoration: "underline" }}>
-                Back to sign in
-              </button>
+              <button onClick={() => { setMode("login"); setError(""); setMessage(""); }} style={{ background: "none", border: "none", color: "#8a7a65", fontSize: 12, cursor: "pointer", fontFamily: "'Archivo', sans-serif", textDecoration: "underline" }}>Back to sign in</button>
             )}
           </div>
         </div>
@@ -2527,8 +2382,6 @@ const LoginScreen = ({ onLogin }) => {
     </div>
   );
 };
-
-// ── Auth Wrapper ──────────────────────────────────────────────────────────────
 
 export default function RootApp() {
   const [user, setUser] = useState(null);
