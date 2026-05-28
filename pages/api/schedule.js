@@ -4,24 +4,88 @@ export const config = { maxDuration: 60 };
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SUPABASE_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
-async function getDesignerAvailability(designer, startDate, endDate) {
-  if (!SUPABASE_URL || !SUPABASE_KEY) return null;
-  try {
-    const url = `${SUPABASE_URL}/rest/v1/designer_availability?designer=eq.${designer.toLowerCase()}&date=gte.${startDate}&date=lte.${endDate}&select=date,type,project,notes&order=date.asc`;
-    const res = await fetch(url, { headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` } });
-    if (!res.ok) return null;
-    return await res.json();
-  } catch { return null; }
-}
+// ── Date Helpers ─────────────────────────────────────────────────────────────
 
-async function getGregoryAbsences(startDate, endDate) {
+// BC holidays 2026
+const HOLIDAYS_2026 = new Set([
+  "2026-01-01", "2026-02-16", "2026-04-03", "2026-05-18",
+  "2026-07-01", "2026-08-03", "2026-09-07", "2026-10-12",
+  "2026-11-11", "2026-12-25", "2026-12-26",
+]);
+
+const toYMD = (d) => d.toISOString().slice(0, 10);
+
+const isHoliday = (d) => HOLIDAYS_2026.has(toYMD(d));
+
+// Valid work day: Tue–Fri, not a holiday
+const isWorkDay = (d) => {
+  const day = d.getDay();
+  return day >= 2 && day <= 5 && !isHoliday(d);
+};
+
+// Valid meeting day: Tue–Fri, not a holiday
+const isMeetingDay = (d) => isWorkDay(d);
+
+// Add n work days (skips Sun, Mon, holidays)
+const addWorkDays = (date, n) => {
+  let d = new Date(date);
+  let added = 0;
+  while (added < n) {
+    d.setDate(d.getDate() + 1);
+    if (isWorkDay(d)) added++;
+  }
+  return d;
+};
+
+// Next valid meeting day on or after date (prefer Friday for big mtgs)
+const nextMeetingDay = (date, preferFriday = false) => {
+  let d = new Date(date);
+  if (preferFriday) {
+    let search = new Date(d);
+    for (let i = 0; i < 7; i++) {
+      if (search.getDay() === 5 && isMeetingDay(search)) return search;
+      search.setDate(search.getDate() + 1);
+    }
+  }
+  while (!isMeetingDay(d)) d.setDate(d.getDate() + 1);
+  return d;
+};
+
+// 3 meeting date options spaced out, all Tue–Fri, no holidays
+const getMeetingOptions = (baseDate, count = 3) => {
+  const options = [];
+  let d = nextMeetingDay(new Date(baseDate));
+  for (let i = 0; i < count; i++) {
+    options.push(toYMD(d));
+    // Space next option: if Fri skip to Tue, else add 2 days
+    d = new Date(d);
+    d.setDate(d.getDate() + (d.getDay() === 5 ? 4 : 2));
+    while (!isMeetingDay(d)) d.setDate(d.getDate() + 1);
+  }
+  return options;
+};
+
+// Check if designer is booked on a date
+const isDesignerBooked = (dateStr, bookedDays) => bookedDays.includes(dateStr);
+
+// Next available work day for designer
+const nextAvailableWorkDay = (date, bookedDays) => {
+  let d = new Date(date);
+  while (!isWorkDay(d) || isDesignerBooked(toYMD(d), bookedDays)) {
+    d.setDate(d.getDate() + 1);
+  }
+  return d;
+};
+
+// ── Supabase helpers ─────────────────────────────────────────────────────────
+
+async function getDesignerAvailability(designer, startDate, endDate) {
   if (!SUPABASE_URL || !SUPABASE_KEY) return [];
   try {
-    const url = `${SUPABASE_URL}/rest/v1/designer_availability?designer=eq.gregory&date=gte.${startDate}&date=lte.${endDate}&type=eq.absence&select=date&order=date.asc`;
+    const url = `${SUPABASE_URL}/rest/v1/designer_availability?designer=eq.${designer.toLowerCase()}&date=gte.${startDate}&date=lte.${endDate}&select=date,type&order=date.asc`;
     const res = await fetch(url, { headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` } });
     if (!res.ok) return [];
-    const data = await res.json();
-    return data.map(d => d.date);
+    return await res.json();
   } catch { return []; }
 }
 
@@ -36,186 +100,238 @@ async function getLastSyncTime() {
   } catch { return null; }
 }
 
-function formatCalendarContext(designerData, gregoryAbsences, designer) {
-  if (!designerData || designerData.length === 0) return `${designer} has no booked days in this period.`;
-  const blocks = designerData.filter(d => d.type === "design_block");
-  const absent = designerData.filter(d => d.type === "absence");
-  let text = "";
-  if (absent.length > 0) text += `${designer} AWAY (no work): ${absent.map(d => d.date).join(", ")}\n`;
-  if (blocks.length > 0) {
-    const byProject = {};
-    blocks.forEach(d => { const p = d.project || "Other"; if (!byProject[p]) byProject[p] = []; byProject[p].push(d.date); });
-    text += `${designer} BOOKED design days (do not schedule design blocks on these):\n`;
-    Object.entries(byProject).forEach(([proj, dates]) => { text += `  ${proj}: ${dates.join(", ")}\n`; });
-  }
-  if (gregoryAbsences.length > 0) text += `GREGORY AWAY (no client meetings): ${gregoryAbsences.join(", ")}\n`;
-  return text || `${designer} is free in this period.`;
+// ── Schedule Builders ─────────────────────────────────────────────────────────
+
+function buildIDSchedule(clientName, contractDate, bookedDays, gregoryAbsences) {
+  const schedule = [];
+  const conflicts = [];
+  let cursor = new Date(contractDate + "T12:00:00");
+
+  const block = (phase, label, days, notes) => {
+    cursor = nextAvailableWorkDay(addWorkDays(cursor, 1), bookedDays);
+    const start = toYMD(cursor);
+    // Advance cursor by remaining days
+    for (let i = 1; i < days; i++) {
+      cursor = nextAvailableWorkDay(addWorkDays(cursor, 1), bookedDays);
+    }
+    schedule.push({ phase, label: `Design ${clientName} | ${label}`, type: "design", date: start, days, notes });
+  };
+
+  const meeting = (phase, label, durationHrs, notes, preferFriday = false) => {
+    // Meetings go after current cursor, skipping gregory away days
+    let base = addWorkDays(cursor, 1);
+    // Skip gregory away days for meetings
+    while (!isMeetingDay(base) || gregoryAbsences.includes(toYMD(base))) {
+      base.setDate(base.getDate() + 1);
+    }
+    const options = getMeetingOptions(base);
+    // Filter out gregory away days from options
+    const cleanOptions = options.filter(o => !gregoryAbsences.includes(o));
+    while (cleanOptions.length < 3) {
+      const last = new Date(cleanOptions[cleanOptions.length - 1] || toYMD(base));
+      last.setDate(last.getDate() + 2);
+      while (!isMeetingDay(last) || gregoryAbsences.includes(toYMD(last))) last.setDate(last.getDate() + 1);
+      cleanOptions.push(toYMD(last));
+    }
+    const hour = durationHrs >= 3 ? 11 : 10;
+    const endHour = hour + Math.ceil(durationHrs);
+    schedule.push({
+      phase, label: `RF ${clientName} | ${label}`, type: "meeting",
+      date: cleanOptions[0], startTime: `${String(hour).padStart(2,"0")}:00`,
+      endTime: `${String(endHour).padStart(2,"0")}:00`,
+      days: 1, notes, options: cleanOptions, selectedOption: 0,
+    });
+    cursor = new Date(cleanOptions[0] + "T12:00:00");
+  };
+
+  // PRE-DESIGN
+  block("Pre-Design", "Initial Drawing Set Up", 2, "Designer — 2 days");
+
+  // PHASE 1
+  meeting("Phase 1", "Initial Meeting", 1.5, "Gregory + Designer + Client · 1.5 hrs");
+  block("Phase 1", "Aesthetic Direction", 2, "Gregory OFF · Designer invited");
+  meeting("Phase 1", "Aesthetic Direction Meeting", 1.5, "Gregory + Designer + Client · 1.5 hrs");
+  meeting("Phase 1", "Appliance & Plumbing Meeting", 4, "Gregory + Designer + Client · 4 hrs");
+
+  // PHASE 2
+  block("Phase 2", "Team Material Concept", 2, "Gregory OFF · Designer invited");
+  block("Phase 2", "Complete Material Boards", 2, "Designer");
+  block("Phase 2", "Lighting Concept Boards", 1, "Designer");
+  block("Phase 2", "Sketch Elevations", 1, "Gregory OFF · Designer invited");
+  block("Phase 2", "Elevations in AutoCAD", 2, "Designer");
+  meeting("Phase 2", "Concept Elevation & Material Meeting", 4, "Gregory + Designer + Client · 4 hrs · Prefer Friday 11am or 1pm", true);
+
+  // PHASE 3
+  block("Phase 3", "Concept Revisions & Material Boards", 2, "Designer");
+  block("Phase 3", "Documentation", 3, "Designer");
+  block("Phase 3", "Concept Exterior", 1, "2 hrs Gregory");
+  meeting("Phase 3", "Material Confirmation Meeting", 3, "Gregory + Designer + Client · 3 hrs · Prefer Friday 11am or 1pm", true);
+
+  // PHASE 4 — 3D rendering window (15 calendar days)
+  const renderStart = addWorkDays(cursor, 2);
+  const renderEnd = new Date(renderStart);
+  renderEnd.setDate(renderEnd.getDate() + 15);
+  cursor = renderEnd;
+  schedule.push({
+    phase: "Phase 4", label: `Design ${clientName} | 3D Rendering (external)`,
+    type: "design", date: toYMD(renderStart), days: 15,
+    notes: "2–3 weeks external rendering · client review period",
+  });
+
+  block("Phase 4", "Material Confirmation Revisions", 1, "Designer");
+  block("Phase 4", "Complete Remaining Elevations", 3, "Designer");
+  block("Phase 4", "Drawing Details", 1, "Designer");
+  block("Phase 4", "Dimensioning & Noting Elevations", 2, "Designer");
+  block("Phase 4", "Plan Layouts", 5, "Designer");
+  meeting("Phase 4", "Final Review Meeting", 3, "Gregory + Designer + Client · 3 hrs · Prefer Friday 11am or 1pm", true);
+
+  // POST FINAL
+  block("Post Final", "Client Adjustments + Send for Sign-off", 1, "Designer");
+  block("Post Final", "Final Adjustments + Send to Print", 1, "Designer");
+  block("Post Final", "Review Drawings & Gather", 1, "Gregory OFF · Designer invited");
+  block("Post Final", "All Final Edits + Send to Client", 3, "Designer");
+
+  return { schedule, conflicts };
 }
 
-function extractJSON(text) {
-  // Try direct parse first
-  try { return JSON.parse(text.trim()); } catch {}
-  // Strip markdown fences
-  const stripped = text.replace(/```json\s*/gi, "").replace(/```\s*/g, "").trim();
-  try { return JSON.parse(stripped); } catch {}
-  // Find first { to last }
-  const start = text.indexOf("{");
-  const end = text.lastIndexOf("}");
-  if (start !== -1 && end !== -1 && end > start) {
-    try { return JSON.parse(text.slice(start, end + 1)); } catch {}
-  }
-  return null;
+function buildFurnishingsSchedule(clientName, contractDate, bookedDays, gregoryAbsences) {
+  const schedule = [];
+  const conflicts = [];
+  let cursor = new Date(contractDate + "T12:00:00");
+
+  const block = (phase, label, days, notes) => {
+    cursor = nextAvailableWorkDay(addWorkDays(cursor, 1), bookedDays);
+    const start = toYMD(cursor);
+    for (let i = 1; i < days; i++) cursor = nextAvailableWorkDay(addWorkDays(cursor, 1), bookedDays);
+    schedule.push({ phase, label: `Design ${clientName} | ${label}`, type: "design", date: start, days, notes });
+  };
+
+  const meeting = (phase, label, durationHrs, notes, preferFriday = false) => {
+    let base = addWorkDays(cursor, 1);
+    while (!isMeetingDay(base) || gregoryAbsences.includes(toYMD(base))) base.setDate(base.getDate() + 1);
+    const options = getMeetingOptions(base).filter(o => !gregoryAbsences.includes(o));
+    while (options.length < 3) {
+      const last = new Date(options[options.length - 1]);
+      last.setDate(last.getDate() + 2);
+      while (!isMeetingDay(last) || gregoryAbsences.includes(toYMD(last))) last.setDate(last.getDate() + 1);
+      options.push(toYMD(last));
+    }
+    const hour = durationHrs >= 3 ? 11 : 10;
+    schedule.push({
+      phase, label: `RF ${clientName} | ${label}`, type: "meeting",
+      date: options[0], startTime: `${String(hour).padStart(2,"0")}:00`,
+      endTime: `${String(hour + Math.ceil(durationHrs)).padStart(2,"0")}:00`,
+      days: 1, notes, options, selectedOption: 0,
+    });
+    cursor = new Date(options[0] + "T12:00:00");
+  };
+
+  // PRE-DESIGN
+  block("Pre-Design", "Drawing File Set-Up", 2, "Admin + Designer");
+
+  // PHASE 1
+  meeting("Phase 1 | Concept", "Initial Meeting", 1.5, "Gregory + Designer + Client · 1.5 hrs");
+  block("Phase 1 | Concept", "Sourcing", 2, "Gregory OFF both days · Designer");
+  block("Phase 1 | Concept", "Furniture Mood Boards", 3, "Designer 3 days · 1 day Gregory review");
+  block("Phase 1 | Concept", "Furniture Pricing", 1, "Designer");
+  meeting("Phase 1 | Concept", "Furniture Meeting", 2, "Gregory + Designer + Client · 2 hrs");
+  block("Phase 1 | Concept", "Furniture Meeting Revisions", 1, "Designer");
+
+  // PHASE 2
+  block("Phase 2 | Finalize", "Enter Selections into Gather", 1, "Designer");
+  block("Phase 2 | Finalize", "Order Samples", 1, "Designer");
+  meeting("Phase 2 | Finalize", "Furniture & Fabric Confirmation Meeting", 1.5, "Gregory + Designer + Client · 1.5 hrs · ON SITE");
+  block("Phase 2 | Finalize", "Confirmation Meeting Revisions", 1, "Designer");
+
+  // PHASE 3
+  block("Phase 3 | Accessories", "Art Sourcing", 2, "Gregory OFF · Designer");
+  block("Phase 3 | Accessories", "Art & Accessory Concept Boards", 2, "Designer");
+  meeting("Phase 3 | Accessories", "Art & Accessory Concept Meeting", 1.5, "Gregory + Designer + Client · 1.5 hrs");
+  block("Phase 3 | Accessories", "Art & Accessory Board Revisions", 1, "Designer");
+
+  // PHASE 4 — 14 days for delivery/orders
+  cursor = addWorkDays(cursor, 14);
+  meeting("Phase 4 | Installation", "Furniture Set-Up Day", 7, "Gregory + Designer · Full day on site");
+  meeting("Phase 4 | Installation", "Accessory Install Day", 7, "Gregory + Designer · Full day on site");
+  meeting("Phase 4 | Installation", "Photoshoot Day", 6, "Gregory + Designer + Photographer");
+
+  return { schedule, conflicts };
 }
+
+// ── Handler ───────────────────────────────────────────────────────────────────
 
 export default async function handler(req, res) {
   if (req.method !== "POST") return res.status(405).end();
   const { action, clientName, projectType, contractDate, designer, events, revision } = req.body;
 
-  // ── generate_schedule ─────────────────────────────────────────────────────
   if (action === "generate_schedule") {
     const startDate = contractDate;
-    const endDate = new Date(new Date(contractDate).getTime() + 200 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
-    const isFurn = projectType === "furnishings";
+    const endDate = new Date(new Date(contractDate + "T12:00:00").getTime() + 220 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
 
-    const [designerData, gregAbsences, lastSync] = await Promise.all([
+    const [availData, lastSync] = await Promise.all([
       getDesignerAvailability(designer, startDate, endDate),
-      getGregoryAbsences(startDate, endDate),
       getLastSyncTime(),
     ]);
 
-    const calendarContext = formatCalendarContext(designerData, gregAbsences, designer);
+    const bookedDays = availData.filter(d => d.type === "design_block").map(d => d.date);
+    const gregoryAbsences = availData.filter(d => d.type === "absence" && d.designer === "gregory").map(d => d.date);
+
+    // Also fetch gregory absences separately
+    let gregAbs = [];
+    if (SUPABASE_URL && SUPABASE_KEY) {
+      try {
+        const url = `${SUPABASE_URL}/rest/v1/designer_availability?designer=eq.gregory&date=gte.${startDate}&date=lte.${endDate}&type=eq.absence&select=date`;
+        const r = await fetch(url, { headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` } });
+        if (r.ok) gregAbs = (await r.json()).map(d => d.date);
+      } catch {}
+    }
+
     const calendarNote = lastSync
       ? `✓ Calendar synced ${new Date(lastSync).toLocaleDateString("en-CA", { month: "short", day: "numeric" })}`
-      : "⚠ Not synced";
+      : "⚠ Not synced — say 'sync calendar' in Chat";
 
-    const phaseNames = isFurn
-      ? ["Pre-Design", "Phase 1 | Concept", "Phase 2 | Finalize", "Phase 3 | Accessories", "Phase 4 | Installation"]
-      : ["Pre-Design", "Phase 1", "Phase 2", "Phase 3", "Phase 4", "Post Final"];
+    const result = projectType === "furnishings"
+      ? buildFurnishingsSchedule(clientName, contractDate, bookedDays, gregAbs)
+      : buildIDSchedule(clientName, contractDate, bookedDays, gregAbs);
 
-    const sequence = isFurn ? `
-Pre-Design: Drawing File Set-Up (design block, 2 days)
-Phase 1 | Concept: Initial Meeting (meeting 1.5hr), Sourcing (design 2 days), Furniture Mood Boards (design 3 days), Furniture Pricing (design 1 day), Furniture Meeting (meeting 2hr), Furniture Revisions (design 1 day)
-Phase 2 | Finalize: Enter Selections into Gather (design 1 day), Order Samples (design 1 day), Fabric Confirmation Meeting on site (meeting 1.5hr), Fabric Confirmation Revisions (design 1 day)
-Phase 3 | Accessories: Art Sourcing (design 2 days), Art & Accessory Concept Boards (design 2 days), Art & Accessory Meeting (meeting 1.5hr), Art & Accessory Revisions (design 1 day)
-Phase 4 | Installation: Furniture Setup Day (design 1 day), Accessory Install Day (design 1 day), Photoshoot (design 1 day)
-` : `
-Pre-Design: Initial Drawing Set Up (design block, 2 days)
-Phase 1: Initial Meeting (meeting 1.5hr), Aesthetic Direction (design 2 days), Aesthetic Direction Meeting (meeting 1.5hr), Appliance & Plumbing Meeting (meeting 4hr)
-Phase 2: Team Material Concept (design 2 days), Complete Material Boards (design 2 days), Lighting Concept Boards (design 1 day), Sketch Elevations (design 1 day), Elevations in AutoCAD (design 2 days), Concept Elevation & Material Meeting (meeting 4hr)
-Phase 3: Concept Revisions & Material Boards (design 2 days), Documentation (design 3 days), Concept Exterior (design 1 day), Material Confirmation Meeting (meeting 3hr)
-Phase 4: [skip 15 days for 3D rendering], Material Confirmation Revisions (design 1 day), Complete Remaining Elevations (design 3 days), Drawing Details (design 1 day), Dimensioning & Noting Elevations (design 2 days), Plan Layouts (design 5 days), Final Review Meeting (meeting 3hr)
-Post Final: Make Client Adjustments (design 1 day), Final Adjustments Send to Print (design 1 day), Review Drawings & Gather (design 1 day), All Final Edits Send to Client (design 3 days)
-`;
-
-    const prompt = `You are a project scheduler for Rose & Funk interior design studio.
-
-Generate a complete ${isFurn ? "Furnishings" : "ID Construction"} schedule for client "${clientName}".
-Contract date: ${contractDate}. Designer: ${designer}.
-
-RULES:
-- No meetings on Mondays
-- Client meetings Tuesday–Friday only  
-- Design blocks Monday–Friday
-- 4hr meetings: prefer 11:00 or 13:00 start
-- 1.5hr/2hr/3hr meetings: 10:00 or 13:00 start
-- Skip BC Day (first Mon Aug 2026 = Aug 3), Labour Day (first Mon Sep 2026 = Sep 7), Thanksgiving (second Mon Oct 2026 = Oct 12)
-- Gregory away Jun 24-26, no meetings those days
-
-SEQUENCE:
-${sequence}
-
-CALENDAR DATA:
-${calendarContext}
-
-NAMING RULES:
-- Client meetings: "RF ${clientName} | [Meeting Name]"  
-- Design blocks: "Design ${clientName} | [Block Name]"
-
-OUTPUT: Return ONLY a JSON object. No markdown. No explanation. Just the JSON.
-
-{
-  "schedule": [
-    {
-      "phase": "Pre-Design",
-      "label": "Design ${clientName} | Initial Drawing Set Up",
-      "type": "design",
-      "date": "2026-07-07",
-      "days": 2,
-      "notes": "2 days"
-    },
-    {
-      "phase": "Phase 1",
-      "label": "RF ${clientName} | Initial Meeting",
-      "type": "meeting",
-      "date": "2026-07-09",
-      "startTime": "10:00",
-      "endTime": "11:30",
-      "days": 1,
-      "notes": "1.5hr",
-      "options": ["2026-07-09", "2026-07-10", "2026-07-14"]
-    }
-  ],
-  "conflicts": []
-}
-
-Use these exact phase values: ${phaseNames.map(p => `"${p}"`).join(", ")}
-Generate the FULL schedule following the sequence above. Start from ${contractDate}.
-
-CRITICAL RULES FOR OUTPUT:
-- Every meeting MUST have an "options" array with exactly 3 different valid YYYY-MM-DD date strings
-- Never omit the "options" field from any meeting event
-- Design blocks must have "days" set to the correct number (e.g. 2 for a 2-day block)
-- Use ONLY these exact phase names: ${phaseNames.map(p => '"'+p+'"').join(', ')}`;
-
-    const response = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "x-api-key": process.env.ANTHROPIC_API_KEY, "anthropic-version": "2023-06-01" },
-      body: JSON.stringify({
-        model: "claude-sonnet-4-5",
-        max_tokens: 4000,
-        messages: [{ role: "user", content: prompt }],
-      }),
-    });
-
-    const data = await response.json();
-    const text = data.content?.find(b => b.type === "text")?.text || "";
-    console.log("Schedule API raw response:", text.slice(0, 200));
-
-    const parsed = extractJSON(text);
-    if (parsed && Array.isArray(parsed.schedule)) {
-      return res.status(200).json({ ...parsed, calendarNote });
-    }
-
-    // If parse failed, return error with raw for debugging
-    return res.status(200).json({ schedule: [], conflicts: [], calendarNote, error: `Parse failed: ${text.slice(0, 100)}` });
+    return res.status(200).json({ ...result, calendarNote });
   }
 
-  // ── finalize_schedule ─────────────────────────────────────────────────────
   if (action === "finalize_schedule") {
     return res.status(200).json({ schedule: events || [] });
   }
 
-  // ── revise_schedule ───────────────────────────────────────────────────────
   if (action === "revise_schedule") {
-    const currentJson = JSON.stringify((events || []).slice(0, 20));
-
     const response = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
-      headers: { "Content-Type": "application/json", "x-api-key": process.env.ANTHROPIC_API_KEY, "anthropic-version": "2023-06-01" },
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": process.env.ANTHROPIC_API_KEY,
+        "anthropic-version": "2023-06-01",
+      },
       body: JSON.stringify({
         model: "claude-sonnet-4-5",
         max_tokens: 2000,
-        system: `You are a scheduling assistant for Rose & Funk. Help adjust project schedules. No meetings on Mondays. Client meetings Tue-Fri only. Be concise and give specific dates.`,
-        messages: [{ role: "user", content: `Current schedule: ${currentJson}\n\nRevision: ${revision}\n\nIf updating schedule, reply with JSON: {"schedule": [...], "message": "what changed"}. Otherwise reply with plain text.` }],
+        system: `You are a scheduling assistant for Rose & Funk interior design studio. Help adjust project schedules. Rules: no meetings on Mondays, client meetings Tue-Fri only, skip BC holidays. Be concise and give specific dates.`,
+        messages: [{
+          role: "user",
+          content: `Current schedule (JSON): ${JSON.stringify((events || []).slice(0, 20))}\n\nRevision request: "${revision}"\n\nIf updating schedule, reply with JSON: {"schedule": [...same structure with updated dates...], "message": "what changed"}. Otherwise reply with plain text.`
+        }],
       }),
     });
 
     const data = await response.json();
     const text = data.content?.find(b => b.type === "text")?.text || "";
-    const parsed = extractJSON(text);
-    if (parsed?.schedule) {
-      return res.status(200).json({ schedule: parsed.schedule, message: parsed.message || "Schedule updated." });
-    }
+
+    try {
+      const start = text.indexOf("{");
+      const end = text.lastIndexOf("}");
+      if (start !== -1 && end > start) {
+        const parsed = JSON.parse(text.slice(start, end + 1));
+        if (parsed.schedule) return res.status(200).json({ schedule: parsed.schedule, message: parsed.message || "Schedule updated." });
+      }
+    } catch {}
+
     return res.status(200).json({ message: text });
   }
 
