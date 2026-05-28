@@ -1119,7 +1119,7 @@ const addWorkDays = (date, days) => {
   let added = 0;
   while (added < days) {
     d.setDate(d.getDate() + 1);
-    if (d.getDay() !== 0 && d.getDay() !== 1) added++; // skip Sun(0) and Mon(1)
+    if (d.getDay() !== 0) added++; // skip Sun only — Mon is valid for design blocks
   }
   return d;
 };
