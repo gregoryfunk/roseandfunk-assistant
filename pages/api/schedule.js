@@ -1,321 +1,257 @@
+// pages/api/schedule.js
+export const config = { maxDuration: 60 };
+
 const SCHEDULE_RULES = `
-You are Jenny's scheduling assistant for Rose & Funk Interiors. You have full knowledge of the scheduling rules:
+SCHEDULING RULES — follow these exactly:
+- No meetings on Mondays ever
+- Client meetings: Tuesday–Friday only
+- Design block days: Monday–Friday (design work can happen Monday, meetings cannot)
+- Big presentations (Concept Elevation 4hr, Material Confirmation 3hr, Final Review 3hr): prefer 11am or 1pm start, prefer Friday but not required
+- Aesthetic Direction Meeting (1.5hr): 10am or 1pm start
+- Initial Meeting (1.5hr): 10am or 1pm start
+- ONE designer per project — Gregory attends all client meetings
+- Skip Canadian holidays: BC Day (first Mon Aug), Labour Day (first Mon Sep), Thanksgiving (second Mon Oct)
+- "Gregory OFF" days: no client meetings, no design team days. Design blocks can still happen if designer is working.
+- Gregory away Jun 24–26 (no meetings those dates)
 
-GLOBAL RULES:
-- NO meetings on Mondays ever
-- Client meetings: Tuesday to Friday only
-- Big presentations (4hr meetings): 11am or 13:00 start, never later than 14:00
-- Design blocks (Gregory off): 09:00-17:00
-- All times are America/Vancouver (Pacific)
-- IMPORTANT: Only ONE designer is assigned per project. Use that designer's name in all event notes (e.g. "Gregory + Chloe + Client" not "Gregory + Designer + Client").
-- The assigned designer will be specified in the prompt. Use their actual name throughout.
-- ID Construction designers available: Chloe or Stephanie (ONE designer per project, not both)
-- Furnishings designers available: Lillian
+FURNISHINGS SEQUENCE:
+Pre-Design: Drawing File Set-Up (2 days designer only)
+Phase 1 Concept: Initial Meeting (1.5hr) → Sourcing (2 days, Gregory OFF) → Mood Boards (3 days) → Pricing (1 day) → Furniture Meeting (2hr) → Revisions (1 day)
+Phase 2 Finalize: Enter Gather (1 day) → Order Samples (1 day) → Fabric Confirmation Meeting on site (1.5hr) → Revisions (1 day) → Sign-off → Order
+Phase 3 Accessories: Art Sourcing (2 days, Gregory OFF) → Concept Boards (2 days) → Art Meeting (1.5hr) → Revisions (1 day) → Sign-off → Order
+Phase 4 Install: Furniture Setup Day → Accessory Install Day → Photoshoot
 
+ID CONSTRUCTION SEQUENCE:
+Pre-Design: Initial Drawing Set Up (2 days)
+Phase 1: Initial Meeting (1.5hr) → Aesthetic Direction (2 days) → Aesthetic Direction Meeting (1.5hr) → Appliance & Plumbing Meeting (4hr)
+Phase 2: Team Material Concept (2 days, Gregory + designer) → Complete Material Boards (2 days) → Lighting Concept Boards (1 day) → Sketch Elevations (1 day) → Elevations in AutoCAD (2 days) → Concept Elevation & Material Meeting (4hr)
+Phase 3: Concept Revisions & Material Boards (2 days) → Documentation (3 days) → Concept Exterior (1 day) → Material Confirmation Meeting (3hr)
+Phase 4: [15 day 3D rendering window, design continues] → Material Confirmation Revisions (1 day) → Complete Remaining Elevations (3 days) → Drawing Details (1 day) → Dimensioning & Noting Elevations (2 days) → Plan Layouts (5 days) → Final Review Meeting (3hr)
+Post Final: Make Client Adjustments + Send to Client (1 day) → Make Final Adjustments + Send to Print (1 day) → Review Drawings & Gather (1 day) → All Final Edits + Send to Client (3 days)
 
-ID CONSTRUCTION SCHEDULE SEQUENCE (42 days / 8.5 weeks):
-PRE-DESIGN:
-- 3 days: Drawing Set-up (design block)
+EVENT NAMING:
+- Client meetings: "RF [ClientName] | [Meeting Name]"
+- Design blocks: "Design [ClientName] | [Phase#]-[Block Name]"
 
-PHASE 1:
-- Initial Meeting (1.5 hrs) - CLIENT MEETING - options needed
-- 2 days: Aesthetic Direction (Gregory OFF 9-4, design block)
-- Aesthetic Direction Meeting (1.5 hrs) - CLIENT MEETING - options needed
-- Appliance + Plumbing Meeting (4 hrs) - CLIENT MEETING - options needed
-- 1 rest day
+PAYMENT SCHEDULE (ID Construction):
+- Phase 1 invoice: 15 days before Phase 2 begins
+- Phase 2 invoice: 15 days before Phase 3 begins
+- Phase 3 invoice: 15 days before Phase 4 begins
+- Phase 4 invoice: 15 days before Phase 5 begins
+`;
 
-PHASE 2:
-- 2 days: Team Material Concept (Gregory OFF, design block)
-- 2 days: Complete Material Boards (design block)
-- 2 days: Lighting Concept Boards (design block)
-- 1 day: Sketch Elevations (Gregory OFF, design block)
-- 2 days: Elevations in AutoCAD (design block)
-- Concept Elevation + Material Meeting (4 hrs) - CLIENT MEETING - options needed - PREFER FRIDAY BUT ANY TUE-FRI IS FINE
-- 1 rest day
+async function getCalendarAvailability(startDate, endDate, baseUrl) {
+  try {
+    const res = await fetch(`${baseUrl}/api/calendar-availability`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ startDate, endDate }),
+    });
+    if (!res.ok) return null;
+    return await res.json();
+  } catch (err) {
+    console.error("Failed to fetch calendar availability:", err);
+    return null;
+  }
+}
 
-PHASE 3:
-- 2 days: Concept Revisions + Material Boards (design block)
-- 3 days: Documentation (design block)
-- 1 day: Concept Exterior (design block)
-- Material Confirmation Meeting (3 hrs) - CLIENT MEETING - options needed - PREFER FRIDAY BUT ANY TUE-FRI IS FINE
-- 1 rest day
+function formatBusyDaysForPrompt(availability, designer) {
+  if (!availability) return "Calendar data unavailable — use scheduling rules only.";
 
-PHASE 4:
-- 15 working days: 3D Rendering period (external wait, no team blocks)
-- 1 day: Material Confirmation Revisions (design block)
-- 3 days: client review window (no blocks)
-- 3 days: Complete Remaining Elevations (design block)
-- 1 day: Drawing Details (design block)
-- 2 days: Dimension + Noting Elevations (design block)
-- 5 days: Plan Layouts (design block)
-- Final Review Meeting (3 hrs) - CLIENT MEETING - options needed - PREFER FRIDAY BUT ANY TUE-FRI IS FINE
-- 2 rest days
+  const busyDays = availability.designerBusyDays?.[designer.toLowerCase()] || [];
+  const gregoryBusy = availability.gregorBusyDays || [];
 
-POST FINAL:
-- 1 day: Client Adjustments (design block)
-- 3 days: client review window
-- 2 days: Final Adjustments + Send to Print (design block)
-- 1 day: Review Drawings + Gather (Gregory OFF, design block)
-- 3 days: All Final Edits + Send to Client (design block)
+  let text = "";
 
-FURNISHINGS SCHEDULE SEQUENCE:
-PRE-DESIGN:
-- 1 day: Drawing File Set-up (admin block)
+  if (busyDays.length > 0) {
+    text += `\n${designer} ALREADY BOOKED (design blocks on these dates — avoid scheduling additional design blocks, but client meetings are OK if Gregory is free):\n`;
+    text += busyDays.join(", ") + "\n";
+  } else {
+    text += `\n${designer}: No existing design blocks found in this period.\n`;
+  }
 
-PHASE 1 | CONCEPT (3 weeks):
-- Initial Meeting (1.5 hrs) - CLIENT MEETING - options needed
-- 2 days: Sourcing (Gregory OFF both days, design block)
-- 3 days: Furniture Mood Boards (design block)
-- 1 day: Furniture Pricing (design block)
-- Furniture Meeting (2 hrs) - CLIENT MEETING - options needed
-- 1 day: Furniture Meeting Revisions (design block)
+  if (gregoryBusy.length > 0) {
+    text += `\nGREGORY AWAY (no meetings on these dates):\n`;
+    text += gregoryBusy.join(", ") + "\n";
+  }
 
-PHASE 2 | FINALIZE (4-5 weeks):
-- 1 day: Enter Selections into Gather (design block)
-- 1 day: Order Samples (design block)
-- Furniture + Fabric Confirmation Meeting (1.5 hrs) - ON SITE CLIENT MEETING - options needed
-- 1 day: Confirmation Meeting Revisions (design block)
+  if (availability.clientMeetings?.length > 0) {
+    text += `\nEXISTING CLIENT MEETINGS (for context — avoid double-booking Gregory):\n`;
+    availability.clientMeetings.slice(0, 30).forEach((m) => {
+      text += `  ${m.date} ${m.time !== "all-day" ? m.time : ""}: ${m.title}\n`;
+    });
+  }
 
-PHASE 3 | ACCESSORIES (3 weeks):
-- 1 day: Art Sourcing (Gregory OFF, design block)
-- 1 day: Accessory + Art Concept Boards (design block)
-- Accessory + Art Concept Meeting (1.5 hrs) - CLIENT MEETING - options needed
-- 3 business days: client review window
-- 1 day: Accessory Board Revisions (design block)
+  return text;
+}
 
-PHASE 4 | INSTALLATION:
-- Furniture Set-Up Day (7 hrs) - CLIENT MEETING - options needed - full day on site
-- Accessory Install Day (7 hrs) - CLIENT MEETING - options needed - full day on site
-- Photoshoot Day (6 hrs) - CLIENT MEETING - options needed
+export default async function handler(req, res) {
+  if (req.method !== "POST") return res.status(405).end();
 
-EVENT NAMING RULES:
-- Client meetings must be named: "RF [ClientName] | [Meeting Name]"
-- Design/admin blocks must be named: "Design [ClientName] | [Block Name]"
+  const { action, clientName, projectType, contractDate, designer, selectedDates, messages, baseUrl } = req.body;
 
-IMPORTANT: For each CLIENT MEETING provide exactly 3 date options (all Tuesday-Friday).
-Space the 3 options across the same week or adjacent days.
-Design blocks should be placed sequentially working forward from the contract date.
+  // ── COMPARE: generate schedule for both designers ──────────────────────────
+  if (action === "compare") {
+    const startDate = contractDate;
+    const endDate = new Date(new Date(contractDate).getTime() + 180 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
 
-RESPOND ONLY WITH VALID JSON - no markdown, no explanation, just the JSON object:
+    // Fetch real calendar availability
+    const availability = await getCalendarAvailability(startDate, endDate, baseUrl || `https://${req.headers.host}`);
+    const calendarNote = availability
+      ? "✓ Real calendar data loaded"
+      : "⚠ Calendar unavailable — using rules only";
+
+    const designers = projectType === "furnishings"
+      ? ["Chloe", "Stephanie"]
+      : ["Chloe", "Stephanie"];
+
+    const comparePromises = designers.map(async (d) => {
+      const calendarContext = formatBusyDaysForPrompt(availability, d);
+
+      const prompt = `You are scheduling a new ${projectType === "furnishings" ? "Furnishings" : "ID Construction"} project for client "${clientName}". Contract date: ${contractDate}.
+
+Designer being evaluated: ${d}
+
+${SCHEDULE_RULES}
+
+REAL CALENDAR DATA FOR THIS PERIOD:
+${calendarContext}
+
+Generate a complete project schedule for ${d} starting from ${contractDate}.
+- Skip any dates where ${d} already has design blocks (listed above) — those days are taken
+- Skip any dates where Gregory is away for client meetings
+- Follow the sequence exactly
+- No meetings on Mondays
+- Respect all rules above
+
+Respond in this exact JSON format (no markdown, no backticks):
 {
-  "conflicts_found": ["description of any conflicts noted"],
-  "schedule": [
+  "designer": "${d}",
+  "completionDate": "YYYY-MM-DD",
+  "totalWeeks": number,
+  "phases": [
     {
       "phase": "Phase name",
-      "type": "meeting",
-      "label": "RF ClientName | Meeting Name",
-      "date": "YYYY-MM-DD",
-      "startTime": "HH:MM",
-      "endTime": "HH:MM",
-      "days": 1,
-      "notes": "Gregory + [Assigned Designer] + Client · X hrs · notes",
-      "options": ["YYYY-MM-DD", "YYYY-MM-DD", "YYYY-MM-DD"],
-      "selectedOption": 0
-    },
+      "items": [
+        { "name": "Event name", "date": "YYYY-MM-DD", "type": "meeting|design|admin", "duration": "1.5hr|4hr|all-day|etc" }
+      ]
+    }
+  ],
+  "conflicts": ["Any real conflicts found with existing calendar — list them here"],
+  "notes": "Any scheduling notes"
+}`;
+
+      const response = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model: "claude-sonnet-4-5",
+          max_tokens: 4000,
+          messages: [{ role: "user", content: prompt }],
+        }),
+      });
+
+      const data = await response.json();
+      const text = data.content?.find((b) => b.type === "text")?.text || "{}";
+      try {
+        const clean = text.replace(/```json|```/g, "").trim();
+        return JSON.parse(clean);
+      } catch {
+        return { designer: d, error: "Failed to parse schedule", raw: text };
+      }
+    });
+
+    const [schedule1, schedule2] = await Promise.all(comparePromises);
+    return res.status(200).json({ schedules: [schedule1, schedule2], calendarNote });
+  }
+
+  // ── GENERATE: full schedule for chosen designer ────────────────────────────
+  if (action === "generate") {
+    const startDate = contractDate;
+    const endDate = new Date(new Date(contractDate).getTime() + 200 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+
+    const availability = await getCalendarAvailability(startDate, endDate, baseUrl || `https://${req.headers.host}`);
+    const calendarContext = formatBusyDaysForPrompt(availability, designer);
+
+    const prompt = `You are scheduling a new ${projectType === "furnishings" ? "Furnishings" : "ID Construction"} project for client "${clientName}". Contract date: ${contractDate}. Assigned designer: ${designer}.
+
+${SCHEDULE_RULES}
+
+REAL CALENDAR DATA FOR THIS PERIOD:
+${calendarContext}
+
+Generate the COMPLETE project schedule. For each client meeting, provide 3 date options (option A, B, C) that are all conflict-free.
+
+Respond in this exact JSON format (no markdown, no backticks):
+{
+  "designer": "${designer}",
+  "clientName": "${clientName}",
+  "contractDate": "${contractDate}",
+  "completionDate": "YYYY-MM-DD",
+  "calendarDataUsed": true,
+  "conflicts": ["List any real conflicts you had to work around"],
+  "phases": [
     {
       "phase": "Phase name",
-      "type": "block",
-      "label": "Design ClientName | Block Name",
-      "date": "YYYY-MM-DD",
-      "startTime": "09:00",
-      "endTime": "17:00",
-      "days": 2,
-      "notes": "Designer · details"
+      "items": [
+        {
+          "name": "Event name (use RF naming for client meetings, Design naming for blocks)",
+          "type": "meeting|design|admin",
+          "duration": "1.5hr|3hr|4hr|all-day",
+          "dateOptions": ["YYYY-MM-DD", "YYYY-MM-DD", "YYYY-MM-DD"],
+          "time": "10:00am|11:00am|1:00pm|all-day",
+          "notes": "optional note"
+        }
+      ]
     }
   ]
 }`;
 
-export default async function handler(req, res) {
-  if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
+    const response = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: "claude-sonnet-4-5",
+        max_tokens: 4000,
+        messages: [{ role: "user", content: prompt }],
+      }),
+    });
 
-  const { action, clientName, projectType, contractDate, events, revision, designer } = req.body;
-
-  if (action === "generate_schedule") {
+    const data = await response.json();
+    const text = data.content?.find((b) => b.type === "text")?.text || "{}";
     try {
-      const assignedDesigner = designer || (projectType === "furnishings" ? "Lillian" : "Chloe");
-      const prompt = `Contract signed: ${contractDate}
-Client name: ${clientName}
-Project type: ${projectType === "id" ? "ID Construction (Large Project)" : "Furnishings"}
-Assigned designer: ${assignedDesigner}
-Today's date: ${new Date().toISOString().split("T")[0]}
-
-Generate the complete project schedule starting from the contract date.
-Work strictly through the phase sequence for this project type.
-IMPORTANT: Only ONE designer (${assignedDesigner}) is assigned to this project. Use their name in all event notes.
-Never schedule anything on a Monday.
-For big presentations (4hr meetings) always use 11:00 or 13:00 start times. Friday is preferred but Tuesday-Friday are all acceptable.
-For 1.5-2hr meetings use 10:00 or 11:00 start times.
-For install/full-day events use 09:00-17:00.
-Provide exactly 3 date options for every client meeting, spaced across Tue-Fri.`;
-
-      const response = await fetch("https://api.anthropic.com/v1/messages", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-api-key": process.env.ANTHROPIC_API_KEY,
-          "anthropic-version": "2023-06-01",
-        },
-        body: JSON.stringify({
-          model: "claude-sonnet-4-5",
-          max_tokens: 4000,
-          system: SCHEDULE_RULES,
-          messages: [{ role: "user", content: prompt }],
-        }),
-      });
-
-      const data = await response.json();
-      if (data.error) throw new Error(data.error.message);
-
-      const text = data.content[0].text;
-      let schedule;
-      try {
-        const clean = text.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
-        schedule = JSON.parse(clean);
-      } catch (e) {
-        const match = text.match(/\{[\s\S]*\}/);
-        if (match) schedule = JSON.parse(match[0]);
-        else throw new Error("Could not parse schedule JSON");
-      }
-
-      return res.status(200).json({
-        success: true,
-        schedule: schedule.schedule || schedule,
-        conflicts: schedule.conflicts_found || [],
-      });
-    } catch (err) {
-      console.error("Schedule generation error:", err);
-      return res.status(500).json({ error: err.message });
+      const clean = text.replace(/```json|```/g, "").trim();
+      const schedule = JSON.parse(clean);
+      return res.status(200).json({ schedule, calendarNote: availability ? "✓ Real calendar data used" : "⚠ Calendar unavailable" });
+    } catch {
+      return res.status(200).json({ error: "Parse error", raw: text });
     }
   }
 
-  if (action === "finalize_schedule") {
-    try {
-      const confirmedMeetings = (events || []).filter(e => e.type === "meeting");
-      const prompt = `Client: ${clientName}, Project: ${projectType}
-Jenny has confirmed these meeting dates:
-${confirmedMeetings.map(e => `- ${e.label}: ${e.options?.[e.selectedOption] || e.date}`).join("\n")}
+  // ── REVISE: adjust schedule based on Jenny's feedback ─────────────────────
+  if (action === "revise") {
+    const systemPrompt = `You are a scheduling assistant for Rose & Funk interior design studio. 
+You help adjust project schedules based on feedback. 
+${SCHEDULE_RULES}
+Respond conversationally but always include specific dates when suggesting changes.
+If the user confirms a date, acknowledge it clearly.
+Keep responses concise.`;
 
-Now generate the complete finalized schedule with ALL events — both the confirmed client meetings AND all design blocks properly placed in sequence around them.
-Follow the exact phase sequence. Never put anything on a Monday.
-Return the complete JSON schedule.`;
+    const response = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: "claude-sonnet-4-5",
+        max_tokens: 1000,
+        system: systemPrompt,
+        messages: messages || [],
+      }),
+    });
 
-      const response = await fetch("https://api.anthropic.com/v1/messages", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-api-key": process.env.ANTHROPIC_API_KEY,
-          "anthropic-version": "2023-06-01",
-        },
-        body: JSON.stringify({
-          model: "claude-sonnet-4-5",
-          max_tokens: 4000,
-          system: SCHEDULE_RULES,
-          messages: [{ role: "user", content: prompt }],
-        }),
-      });
-
-      const data = await response.json();
-      if (data.error) throw new Error(data.error.message);
-
-      const text = data.content[0].text;
-      let schedule;
-      try {
-        const clean = text.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
-        const parsed = JSON.parse(clean);
-        schedule = parsed.schedule || parsed;
-      } catch (e) {
-        const match = text.match(/\{[\s\S]*\}/);
-        if (match) {
-          const parsed = JSON.parse(match[0]);
-          schedule = parsed.schedule || parsed;
-        } else throw new Error("Could not parse finalized schedule");
-      }
-
-      return res.status(200).json({ success: true, schedule });
-    } catch (err) {
-      console.error("Finalize error:", err);
-      return res.status(500).json({ error: err.message });
-    }
-  }
-
-
-  if (action === "revise_schedule") {
-    try {
-      // Slim down the schedule to just phase, label, date, type for context
-      const slim = (events || []).map(ev => ({
-        phase: ev.phase,
-        type: ev.type,
-        label: ev.label,
-        date: ev.date,
-        startTime: ev.startTime,
-        endTime: ev.endTime,
-        days: ev.days,
-      }));
-      const currentSchedule = JSON.stringify(slim, null, 2);
-      const prompt = `Current schedule for ${clientName} (${projectType === "id" ? "ID Construction" : "Furnishings"}), designer: ${designer || "assigned designer"}:
-${currentSchedule}
-
-Jenny's revision request: "${revision}"
-
-Apply ONLY the requested changes. Keep all other events exactly as they are.
-Rules: no Mondays, presentations at 11:00 or 13:00, no later than 14:00.
-Return compact JSON (no extra whitespace) with a brief message:
-{"message":"What changed","schedule":[...all events with same structure...]}`;
-
-      const response = await fetch("https://api.anthropic.com/v1/messages", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-api-key": process.env.ANTHROPIC_API_KEY,
-          "anthropic-version": "2023-06-01",
-        },
-        body: JSON.stringify({
-          model: "claude-sonnet-4-5",
-          max_tokens: 3000,
-          system: SCHEDULE_RULES,
-          messages: [{ role: "user", content: prompt }],
-        }),
-      });
-
-      const data = await response.json();
-      if (data.error) throw new Error(data.error.message);
-
-      const text = data.content[0].text;
-      let result;
-      try {
-        const clean = text.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
-        // Try to extract just the JSON object
-        const start = clean.indexOf('{');
-        const end = clean.lastIndexOf('}');
-        const jsonStr = start >= 0 && end > start ? clean.slice(start, end + 1) : clean;
-        result = JSON.parse(jsonStr);
-      } catch (e) {
-        // If full parse fails, try to extract schedule array directly
-        const schedMatch = text.match(/"schedule"\s*:\s*(\[[\s\S]*?\])/);
-        const msgMatch = text.match(/"message"\s*:\s*"([^"]+)"/);
-        if (schedMatch) {
-          result = { schedule: JSON.parse(schedMatch[1]), message: msgMatch ? msgMatch[1] : "Schedule updated." };
-        } else {
-          throw new Error("Could not parse revised schedule: " + e.message);
-        }
-      }
-
-      return res.status(200).json({
-        success: true,
-        schedule: result.schedule || result,
-        message: result.message || "Schedule updated.",
-      });
-    } catch (err) {
-      console.error("Revise error:", err);
-      return res.status(500).json({ error: err.message });
-    }
+    const data = await response.json();
+    const text = data.content?.find((b) => b.type === "text")?.text || "Sorry, I couldn't process that.";
+    return res.status(200).json({ text });
   }
 
   return res.status(400).json({ error: "Unknown action" });
 }
-
-export const config = {
-  maxDuration: 60,
-};
-
-// Note: revise_schedule action added above export config
