@@ -16,7 +16,7 @@ const C = { // Rose & Funk light theme
 };
 
 const ROOMS = [
-  { id: "3d", label: "3D Rendering", cost: 1750 },
+  { id: "3d", label: "3D Rendering", cost: 1900 },
   { id: "a", label: "A - Exterior", cost: 2500 },
   { id: "b", label: "B - Foyer", cost: 1850 },
   { id: "c", label: "C - Staircase", cost: 2750 },
