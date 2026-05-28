@@ -1128,7 +1128,7 @@ const addWorkDays = (date, days) => {
   let added = 0;
   while (added < days) {
     d.setDate(d.getDate() + 1);
-    if (d.getDay() !== 0) added++;
+    if (d.getDay() !== 0 && d.getDay() !== 6) added++;
   }
   return d;
 };
@@ -1142,7 +1142,7 @@ const nextMeetingDay = (date, preferFriday = false) => {
     }
     d = new Date(date);
   }
-  while (d.getDay() === 0 || d.getDay() === 1) d.setDate(d.getDate() + 1);
+  while (d.getDay() === 0 || d.getDay() === 1 || d.getDay() === 6) d.setDate(d.getDate() + 1);
   return d;
 };
 
@@ -1152,8 +1152,8 @@ const getMeetingOptions = (baseDate, count = 3) => {
   for (let i = 0; i < count; i++) {
     options.push(new Date(d));
     d = new Date(d);
-    d.setDate(d.getDate() + (d.getDay() === 4 ? 3 : 2));
-    while (d.getDay() === 0 || d.getDay() === 1) d.setDate(d.getDate() + 1);
+    d.setDate(d.getDate() + (d.getDay() === 4 ? 4 : d.getDay() === 3 ? 4 : 3));
+    while (d.getDay() === 0 || d.getDay() === 1 || d.getDay() === 6) d.setDate(d.getDate() + 1);
   }
   return options;
 };
@@ -1260,7 +1260,7 @@ const computeDates = (events) => {
       const off = ev.offsetFromPrev || ev.offsetFromPrevBlock || 1;
       if (cursor) cursor = addWorkDays(cursor, off);
       else cursor = new Date();
-      while (cursor.getDay() === 0 || cursor.getDay() === 1) cursor.setDate(cursor.getDate() + 1);
+      while (cursor.getDay() === 0 || cursor.getDay() === 1 || cursor.getDay() === 6) cursor.setDate(cursor.getDate() + 1);
       const blockStart = new Date(cursor);
       if (ev.days > 1) cursor = addWorkDays(cursor, ev.days - 1);
       return { ...ev, date: blockStart, startTime: withTime(blockStart, 9), endTime: withTime(blockStart, 17) };
@@ -1306,7 +1306,7 @@ const ScheduleTab = () => {
     if (!schedule || schedule.length === 0) return new Date(0);
     return schedule.filter(e => e.date).reduce((latest, e) => {
       let end = new Date(e.date);
-      if (e.days > 1) { let added = 0; while (added < e.days - 1) { end.setDate(end.getDate() + 1); if (end.getDay() !== 0 && end.getDay() !== 1) added++; } }
+      if (e.days > 1) { let added = 0; while (added < e.days - 1) { end.setDate(end.getDate() + 1); if (end.getDay() !== 0 && end.getDay() !== 6 && end.getDay() !== 1) added++; } }
       return end > latest ? end : latest;
     }, new Date(0));
   };
@@ -1573,7 +1573,7 @@ const ScheduleTab = () => {
             let added = 0;
             while (added < e.days - 1) {
               end.setDate(end.getDate() + 1);
-              if (end.getDay() !== 0 && end.getDay() !== 1) added++;
+              if (end.getDay() !== 0 && end.getDay() !== 6 && end.getDay() !== 1) added++;
             }
           }
           return end > latest ? end : latest;
@@ -1654,20 +1654,12 @@ const ScheduleTab = () => {
                             <div style={{ textAlign: "right", flexShrink: 0 }}>
                               {ev.date && (
                                 <div style={{ fontSize: 13, color: ev.type === "meeting" ? phaseColor : C.muted, fontWeight: 500 }}>
-                                  {ev.days > 1 ? (() => {
-                                    const end = new Date(ev.date);
-                                    let added = 0;
-                                    while (added < ev.days - 1) {
-                                      end.setDate(end.getDate() + 1);
-                                      if (end.getDay() !== 0 && end.getDay() !== 1) added++;
-                                    }
-                                    return `${fmtDate(ev.date)} – ${fmtDate(end)}`;
-                                  })() : fmtDate(ev.date)}
+                                  {fmtDate(ev.date)}{ev.type !== "meeting" && ev.days > 1 ? ` + ${ev.days - 1} more day${ev.days > 2 ? "s" : ""}` : ""}
                                 </div>
                               )}
                               {ev.startTime && ev.endTime && (
                                 <div style={{ fontSize: 11, color: C.dim, marginTop: 2 }}>
-                                  {ev.days > 1 ? `${ev.days} days · ` : ""}{fmtTime(ev.startTime)} – {fmtTime(ev.endTime)}
+                                  {ev.type !== "meeting" && ev.days > 1 ? `${ev.days} days (flexible) · ` : ""}{fmtTime(ev.startTime)} – {fmtTime(ev.endTime)}
                                 </div>
                               )}
                             </div>
