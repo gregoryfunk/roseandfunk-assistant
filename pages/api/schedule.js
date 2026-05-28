@@ -1,8 +1,8 @@
 // pages/api/schedule.js
 export const config = { maxDuration: 60 };
 
-const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const SUPABASE_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+const SUPABASE_URL = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
+const SUPABASE_KEY = process.env.SUPABASE_SECRET_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
 // ── BC Holidays 2026 ──────────────────────────────────────────────────────────
 const HOLIDAYS = new Set([
@@ -306,6 +306,7 @@ export default async function handler(req, res) {
       ? `✓ Calendar synced ${new Date(lastSync).toLocaleDateString("en-CA", { month: "short", day: "numeric" })}`
       : "⚠ Not synced — say 'sync calendar' in Chat";
 
+    console.log("Schedule gen:", { designer, bookedDays: bookedDays.length, gregoryAbsences: gregoryAbsences.length, supabaseUrl: !!SUPABASE_URL });
     const result = projectType === "furnishings"
       ? buildFurnishingsSchedule(clientName, contractDate, bookedDays, gregoryAbsences)
       : buildIDSchedule(clientName, contractDate, bookedDays, gregoryAbsences);
