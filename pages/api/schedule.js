@@ -159,7 +159,13 @@ OUTPUT: Return ONLY a JSON object. No markdown. No explanation. Just the JSON.
 }
 
 Use these exact phase values: ${phaseNames.map(p => `"${p}"`).join(", ")}
-Generate the FULL schedule following the sequence above. Start from ${contractDate}.`;
+Generate the FULL schedule following the sequence above. Start from ${contractDate}.
+
+CRITICAL RULES FOR OUTPUT:
+- Every meeting MUST have an "options" array with exactly 3 different valid YYYY-MM-DD date strings
+- Never omit the "options" field from any meeting event
+- Design blocks must have "days" set to the correct number (e.g. 2 for a 2-day block)
+- Use ONLY these exact phase names: ${phaseNames.map(p => '"'+p+'"').join(', ')}`;
 
     const response = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
