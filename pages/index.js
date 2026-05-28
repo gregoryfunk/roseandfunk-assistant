@@ -1654,7 +1654,15 @@ const ScheduleTab = () => {
                             <div style={{ textAlign: "right", flexShrink: 0 }}>
                               {ev.date && (
                                 <div style={{ fontSize: 13, color: ev.type === "meeting" ? phaseColor : C.muted, fontWeight: 500 }}>
-                                  {fmtDate(ev.date)}{ev.type !== "meeting" && ev.days > 1 ? ` + ${ev.days - 1} more day${ev.days > 2 ? "s" : ""}` : ""}
+                                  {ev.type !== "meeting" && ev.days > 1 ? (() => {
+                                    const dates = [new Date(ev.date)];
+                                    let d = new Date(ev.date);
+                                    while (dates.length < ev.days) {
+                                      d = new Date(d); d.setDate(d.getDate() + 1);
+                                      if (d.getDay() !== 0 && d.getDay() !== 6 && d.getDay() !== 1) dates.push(new Date(d));
+                                    }
+                                    return dates.map(dt => dt.toLocaleDateString("en-CA", { weekday: "short", month: "short", day: "numeric" })).join(", ");
+                                  })() : fmtDate(ev.date)}
                                 </div>
                               )}
                               {ev.startTime && ev.endTime && (
