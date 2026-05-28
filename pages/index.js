@@ -7,7 +7,7 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 const ALLOWED_DOMAIN = "roseandfunk.com";
 
 
-const TABS = ["Chat", "Estimator", "Furnishings", "Knowledge Base", "Procedures", "Contacts", "Schedule"];
+const TABS = ["Chat", "Estimator", "Estimator 2", "Furnishings", "Knowledge Base", "Procedures", "Contacts", "Schedule"];
 
 const C = { // Rose & Funk light theme
   bg: "#EAE5DD", surface: "#F5F2ED", border: "#D4CFCA",
@@ -777,6 +777,364 @@ const Estimator = () => {
   );
 };
 
+// ── Estimator 2 — Project Fee Calculator ────────────────────────────────────
+
+const E2_ROOMS = [
+  { name: "Kitchen", t: "h", hrs: 28, fee: 4900 },
+  { name: "Primary ensuite", t: "h", hrs: 22, fee: 3850 },
+  { name: "Great room / family room", t: "h", hrs: 20, fee: 3500 },
+  { name: "Media room", t: "h", hrs: 20, fee: 3500 },
+  { name: "Prep kitchen", t: "h", hrs: 16, fee: 2800 },
+  { name: "Primary bedroom", t: "m", hrs: 14, fee: 2450 },
+  { name: "Ensuite (secondary)", t: "m", hrs: 13, fee: 2275 },
+  { name: "Staircase", t: "m", hrs: 12, fee: 2100 },
+  { name: "Rec room / bar", t: "m", hrs: 12, fee: 2100 },
+  { name: "Dining room", t: "m", hrs: 11, fee: 1925 },
+  { name: "Office / den", t: "m", hrs: 11, fee: 1925 },
+  { name: "Primary WIC", t: "m", hrs: 11, fee: 1925 },
+  { name: "Bedroom (secondary)", t: "s", hrs: 8, fee: 1400 },
+  { name: "Outdoor kitchen", t: "s", hrs: 10, fee: 1750 },
+  { name: "Bathroom / hall bath", t: "s", hrs: 9, fee: 1575 },
+  { name: "Powder room", t: "s", hrs: 7, fee: 1225 },
+  { name: "Foyer", t: "s", hrs: 8, fee: 1400 },
+  { name: "Pantry", t: "s", hrs: 7, fee: 1225 },
+  { name: "Mudroom", t: "s", hrs: 7, fee: 1225 },
+  { name: "Laundry", t: "s", hrs: 6, fee: 1050 },
+  { name: "Gym", t: "l", hrs: 5, fee: 875 },
+  { name: "Loft area", t: "l", hrs: 5, fee: 875 },
+  { name: "Dining nook", t: "l", hrs: 5, fee: 875 },
+];
+const E2_TIER_LABELS = { h: "High complexity", m: "Medium", s: "Standard", l: "Light touch" };
+const E2_P1_TIERS = [
+  { fee: 8500,  label: "Small",      spaces: "≤10 spaces",  maxSpaces: 10,  gHrs: 20, dHrs: 12 },
+  { fee: 10500, label: "Medium",     spaces: "11–16 spaces", maxSpaces: 16,  gHrs: 25, dHrs: 15 },
+  { fee: 13000, label: "Large",      spaces: "17–22 spaces", maxSpaces: 22,  gHrs: 31, dHrs: 18 },
+  { fee: 15500, label: "Major build",spaces: "23+ spaces",   maxSpaces: 999, gHrs: 37, dHrs: 22 },
+];
+const E2_VISITS_DEF = [
+  { id: "framing",     name: "Framing meeting",            defaultHrs: 2,   defaultOn: true  },
+  { id: "drywall",     name: "Pre-drywall site visit",      defaultHrs: 2.5, defaultOn: true  },
+  { id: "cabinetry",   name: "Cabinetry / millwork review", defaultHrs: 2,   defaultOn: true  },
+  { id: "finishing",   name: "Finishing site visit",        defaultHrs: 2,   defaultOn: true  },
+  { id: "walkthrough", name: "Final walkthrough",           defaultHrs: 2.5, defaultOn: true  },
+  { id: "extra1",      name: "Additional site visit",       defaultHrs: 2,   defaultOn: false },
+  { id: "extra2",      name: "Additional site visit",       defaultHrs: 2,   defaultOn: false },
+];
+const E2_TIER_COLORS = {
+  h: { bg: "#FAECE7", color: "#993C1D" },
+  m: { bg: "#FAEEDA", color: "#854F0B" },
+  s: { bg: "#E6F1FB", color: "#185FA5" },
+  l: { bg: "#f0efe8", color: "#666" },
+};
+
+const Estimator2 = () => {
+  const [p1Custom, setP1Custom] = useState("");
+  const [km, setKm] = useState(20);
+  const [kmText, setKmText] = useState("20");
+  const [qty, setQty] = useState(() => Object.fromEntries(E2_ROOMS.map(r => [r.name, 0])));
+  const [vs, setVs] = useState(() => Object.fromEntries(E2_VISITS_DEF.map(v => [v.id, { on: v.defaultOn, hrs: v.defaultHrs, designer: false }])));
+  const [mgmtMonths, setMgmtMonths] = useState("10");
+  const [mgmtGHrs, setMgmtGHrs] = useState("3");
+  const [mgmtDHrs, setMgmtDHrs] = useState("1");
+  const [mgmtJHrs, setMgmtJHrs] = useState("0.5");
+
+  const totalSpaces = E2_ROOMS.reduce((s, r) => s + qty[r.name], 0);
+  const autoTier = E2_P1_TIERS.find(t => totalSpaces <= t.maxSpaces) || E2_P1_TIERS[3];
+  const effectiveP1Fee = p1Custom !== "" ? (parseInt(p1Custom) || 0) : autoTier.fee;
+  const driveHrs = km / 70;
+
+  const calcVFee = (id) => {
+    const v = vs[id]; if (!v.on) return 0;
+    return (v.hrs + driveHrs * 2) * 250 + (v.designer ? v.hrs * 175 : 0);
+  };
+
+  const selRooms = E2_ROOMS.filter(r => qty[r.name] > 0);
+  const roomFee = selRooms.reduce((s, r) => s + r.fee * qty[r.name], 0);
+  const roomHrs = selRooms.reduce((s, r) => s + r.hrs * qty[r.name], 0);
+  const roomSpaces = selRooms.reduce((s, r) => s + qty[r.name], 0);
+
+  const d2 = Math.round(roomFee * 22 / 66);
+  const d3 = Math.round(roomFee * 12 / 66);
+  const d4 = roomFee - d2 - d3;
+
+  const mMonths = parseFloat(mgmtMonths) || 0;
+  const mGHrs   = parseFloat(mgmtGHrs)   || 0;
+  const mDHrs   = parseFloat(mgmtDHrs)   || 0;
+  const mJHrs   = parseFloat(mgmtJHrs)   || 0;
+  const mgmtG = mMonths * mGHrs * 250;
+  const mgmtD = mMonths * mDHrs * 175;
+  const mgmtJ = mMonths * mJHrs * 125;
+  const mgmtTotal = mgmtG + mgmtD + mgmtJ;
+  const visitTotal = E2_VISITS_DEF.reduce((s, v) => s + calcVFee(v.id), 0);
+  const p5Fee = visitTotal + mgmtTotal;
+  const grand = effectiveP1Fee + roomFee + p5Fee;
+
+  const p1Hrs = {
+    g: Math.round(effectiveP1Fee * 0.60 / 250),
+    d: Math.round(effectiveP1Fee * 0.35 / 175),
+    j: Math.round(effectiveP1Fee * 0.05 / 125),
+  };
+  const hrsBreak = (fee, gP, dP, jP, blend) => {
+    const tot = blend > 0 ? fee / blend : 0;
+    return { g: Math.round(tot * gP), d: Math.round(tot * dP), j: Math.round(tot * jP) };
+  };
+  const p2Hrs = hrsBreak(d2, 0.28, 0.66, 0.06, 193);
+  const p3Hrs = hrsBreak(d3, 0.20, 0.73, 0.07, 186.5);
+  const p4Hrs = hrsBreak(d4, 0.15, 0.78, 0.07, 183);
+  const visitGHrs = E2_VISITS_DEF.reduce((s, v) => vs[v.id].on ? s + vs[v.id].hrs + driveHrs * 2 : s, 0);
+  const visitDHrs = E2_VISITS_DEF.reduce((s, v) => (vs[v.id].on && vs[v.id].designer) ? s + vs[v.id].hrs : s, 0);
+  const p5Hrs = {
+    g: Math.round(visitGHrs + mMonths * mGHrs),
+    d: Math.round(visitDHrs + mMonths * mDHrs),
+    j: Math.round(mMonths * mJHrs),
+  };
+
+  const draws = [
+    { num: "Draw 1", name: "Phase 1 — Design launch",      trigger: "Due at project start",        fee: effectiveP1Fee, hrs: p1Hrs },
+    { num: "Draw 2", name: "Phase 2 — Conceptual design",  trigger: "Due at start of Phase 2",     fee: d2,    hrs: p2Hrs },
+    { num: "Draw 3", name: "Phase 3 — Design development", trigger: "Due at start of Phase 3",     fee: d3,    hrs: p3Hrs },
+    { num: "Draw 4", name: "Phase 4 — Construction docs",  trigger: "Due at start of Phase 4",     fee: d4,    hrs: p4Hrs },
+    { num: "Draw 5", name: "Phase 5 — Construction",       trigger: `${E2_VISITS_DEF.filter(v => vs[v.id].on).length} visits + ${mMonths} mo. management`, fee: p5Fee, hrs: p5Hrs },
+  ];
+
+  const numStyle = {
+    background: C.bg, border: `1px solid ${C.border}`, borderRadius: 6,
+    color: C.text, padding: "6px 10px", fontSize: 13, fontFamily: "'Archivo', sans-serif", outline: "none",
+  };
+
+  return (
+    <div style={{ flex: 1, maxWidth: 900, width: "100%", margin: "0 auto", padding: "24px 16px", overflowY: "auto" }}>
+      <div style={{ marginBottom: 24 }}>
+        <div style={{ fontSize: 11, letterSpacing: 2, color: C.dim }}>PROJECT FEE CALCULATOR</div>
+        <div style={{ fontSize: 12, color: C.dim, marginTop: 4 }}>P1 flat fee · P2–4 room-based · P5 calculated</div>
+      </div>
+
+      {/* ── PHASE 1 ── */}
+      <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 8, padding: "20px 22px", marginBottom: 16 }}>
+        <div style={{ display: "inline-block", fontSize: 10, fontWeight: 600, padding: "2px 10px", borderRadius: 20, background: "#E1F5EE", color: "#085041", marginBottom: 10 }}>Phase 1 — Draw 1</div>
+        <div style={{ fontSize: 11, letterSpacing: 2, color: C.dim, marginBottom: 8 }}>DESIGN LAUNCH — FLAT FEE BY PROJECT SIZE</div>
+        <div style={{ fontSize: 12, color: C.muted, background: C.faint, borderRadius: 6, padding: "8px 12px", marginBottom: 14, lineHeight: 1.5 }}>
+          Based on Gregory (~60%) + designer (~35%) hours. Auto-selects based on room count — override if needed.
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8, marginBottom: 14 }}>
+          {E2_P1_TIERS.map(tier => {
+            const isActive = p1Custom === "" && autoTier.fee === tier.fee;
+            return (
+              <button key={tier.fee} onClick={() => setP1Custom("")} style={{
+                background: isActive ? C.faint : C.bg,
+                border: `${isActive ? 2 : 1}px solid ${isActive ? C.gold : C.border}`,
+                borderRadius: 8, padding: "12px 8px", cursor: "pointer", textAlign: "center",
+                fontFamily: "'Archivo', sans-serif", transition: "border-color 0.15s"
+              }}>
+                <span style={{ fontSize: 10, color: C.dim, display: "block", marginBottom: 2 }}>{tier.label}</span>
+                <span style={{ fontSize: 12, fontWeight: 600, color: isActive ? C.text : C.muted, display: "block", marginBottom: 3 }}>
+                  {tier.spaces}
+                  {isActive && <span style={{ display: "inline-block", fontSize: 9, background: "#E1F5EE", color: "#085041", padding: "1px 5px", borderRadius: 10, marginLeft: 4 }}>auto</span>}
+                </span>
+                <span style={{ fontSize: 15, fontWeight: 600, color: C.gold, display: "block", marginBottom: 2 }}>{fmt(tier.fee)}</span>
+                <span style={{ fontSize: 10, color: C.dim, display: "block" }}>~{tier.gHrs} G + {tier.dHrs} D hrs</span>
+              </button>
+            );
+          })}
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 12, flexWrap: "wrap" }}>
+          <span style={{ fontSize: 13, color: C.muted }}>Custom P1 fee:</span>
+          <input type="number" value={p1Custom} onChange={e => setP1Custom(e.target.value)} placeholder="e.g. 11500" min={0} step={500} style={{ ...numStyle, width: 130 }} />
+          <span style={{ fontSize: 14, fontWeight: 600, color: C.gold }}>{fmt(effectiveP1Fee)}</span>
+        </div>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          {[
+            `Gregory ~${Math.round(effectiveP1Fee * 0.60 / 250)} hrs · ${fmt(Math.round(effectiveP1Fee * 0.60))}`,
+            `Designer ~${Math.round(effectiveP1Fee * 0.35 / 175)} hrs · ${fmt(Math.round(effectiveP1Fee * 0.35))}`,
+            `Jenny ~${Math.round(effectiveP1Fee * 0.05 / 125)} hrs · ${fmt(Math.round(effectiveP1Fee * 0.05))}`,
+          ].map((l, i) => <span key={i} style={{ fontSize: 12, color: C.muted, padding: "3px 10px", background: C.faint, borderRadius: 20 }}>{l}</span>)}
+        </div>
+      </div>
+
+      {/* ── PHASES 2–4 ── */}
+      <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 8, padding: "20px 22px", marginBottom: 16 }}>
+        <div style={{ display: "inline-block", fontSize: 10, fontWeight: 600, padding: "2px 10px", borderRadius: 20, background: "#E6F1FB", color: "#185FA5", marginBottom: 10 }}>Phases 2–4 — Draws 2, 3 & 4</div>
+        <div style={{ fontSize: 11, letterSpacing: 2, color: C.dim, marginBottom: 8 }}>ROOM DESIGN FEES</div>
+        <div style={{ fontSize: 12, color: C.muted, background: C.faint, borderRadius: 6, padding: "8px 12px", marginBottom: 16, lineHeight: 1.5 }}>
+          Room-specific design work across concept, elevations, specs and construction drawings. Designer-weighted rate (~$182–197/hr).
+        </div>
+        {["h", "m", "s", "l"].map(tier => {
+          const tc = E2_TIER_COLORS[tier];
+          return (
+            <div key={tier} style={{ marginBottom: 16 }}>
+              <div style={{ display: "inline-block", fontSize: 11, fontWeight: 600, padding: "3px 10px", borderRadius: 20, background: tc.bg, color: tc.color, marginBottom: 8 }}>
+                {E2_TIER_LABELS[tier]}
+              </div>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                {E2_ROOMS.filter(r => r.t === tier).map(r => (
+                  <button key={r.name} onClick={() => setQty(q => ({ ...q, [r.name]: q[r.name] > 0 ? 0 : 1 }))} style={{
+                    fontSize: 12, padding: "5px 12px",
+                    border: `1px solid ${qty[r.name] > 0 ? "#999" : C.border}`,
+                    borderRadius: 20, cursor: "pointer",
+                    background: qty[r.name] > 0 ? C.faint : C.bg,
+                    color: qty[r.name] > 0 ? C.text : C.muted,
+                    fontFamily: "'Archivo', sans-serif", fontWeight: qty[r.name] > 0 ? 600 : "normal"
+                  }}>
+                    {r.name}{qty[r.name] > 1 ? ` \xd7${qty[r.name]}` : ""}
+                  </button>
+                ))}
+              </div>
+            </div>
+          );
+        })}
+        {selRooms.length === 0 ? (
+          <div style={{ fontSize: 13, color: C.dim, padding: "4px 0" }}>No spaces selected yet.</div>
+        ) : (
+          <div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 70px 70px 80px 28px", gap: 8, marginBottom: 4 }}>
+              {["Space", "Qty", "Hrs", "Fee", ""].map((h, i) => (
+                <span key={i} style={{ fontSize: 11, color: C.dim, textAlign: i >= 2 ? "right" : "left" }}>{h}</span>
+              ))}
+            </div>
+            {selRooms.map(r => (
+              <div key={r.name} style={{ display: "grid", gridTemplateColumns: "1fr 70px 70px 80px 28px", gap: 8, alignItems: "center", padding: "7px 0", borderBottom: `1px solid ${C.faint}` }}>
+                <div>
+                  <div style={{ fontSize: 13, color: C.text }}>{r.name}</div>
+                  <div style={{ fontSize: 11, color: C.dim }}>{E2_TIER_LABELS[r.t]} · {r.hrs} hrs ea</div>
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: 3, justifyContent: "center" }}>
+                  <button onClick={() => setQty(q => ({ ...q, [r.name]: Math.max(0, q[r.name] - 1) }))} style={{ width: 22, height: 22, border: `1px solid ${C.border}`, borderRadius: 4, background: C.faint, cursor: "pointer", fontSize: 14, display: "flex", alignItems: "center", justifyContent: "center" }}>−</button>
+                  <span style={{ fontSize: 13, minWidth: 16, textAlign: "center", color: C.text }}>{qty[r.name]}</span>
+                  <button onClick={() => setQty(q => ({ ...q, [r.name]: q[r.name] + 1 }))} style={{ width: 22, height: 22, border: `1px solid ${C.border}`, borderRadius: 4, background: C.faint, cursor: "pointer", fontSize: 14, display: "flex", alignItems: "center", justifyContent: "center" }}>+</button>
+                </div>
+                <span style={{ fontSize: 12, color: C.muted, textAlign: "right" }}>{r.hrs * qty[r.name]}</span>
+                <span style={{ fontSize: 13, fontWeight: 600, color: C.text, textAlign: "right" }}>{fmt(r.fee * qty[r.name])}</span>
+                <button onClick={() => setQty(q => ({ ...q, [r.name]: 0 }))} style={{ background: "transparent", border: "none", color: C.dim, cursor: "pointer", fontSize: 16 }}>×</button>
+              </div>
+            ))}
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", padding: "10px 14px", background: C.faint, borderRadius: 8, marginTop: 8 }}>
+              <span style={{ fontSize: 12, color: C.muted }}>{roomSpaces} spaces · {roomHrs} hrs · P2–4 work</span>
+              <span style={{ fontSize: 15, fontWeight: 600, color: C.text }}>{fmt(roomFee)}</span>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* ── PHASE 5 ── */}
+      <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 8, padding: "20px 22px", marginBottom: 16 }}>
+        <div style={{ display: "inline-block", fontSize: 10, fontWeight: 600, padding: "2px 10px", borderRadius: 20, background: "#FAEEDA", color: "#854F0B", marginBottom: 10 }}>Phase 5 — Draw 5</div>
+        <div style={{ fontSize: 11, letterSpacing: 2, color: C.dim, marginBottom: 16 }}>CONSTRUCTION PHASE</div>
+
+        <div style={{ marginBottom: 18 }}>
+          <div style={{ fontSize: 13, color: C.muted, marginBottom: 8 }}>Project location — one-way distance</div>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+            {[{ label: "Local (20 km)", value: 20 }, { label: "Metro Van (45 km)", value: 45 }, { label: "North Shore (80 km)", value: 80 }, { label: "Whistler (130 km)", value: 130 }].map(preset => (
+              <button key={preset.value} onClick={() => { setKm(preset.value); setKmText(String(preset.value)); }} style={{
+                fontSize: 12, padding: "4px 12px", border: `1px solid ${km === preset.value ? "#999" : C.border}`,
+                borderRadius: 20, cursor: "pointer", background: km === preset.value ? C.faint : C.bg,
+                color: km === preset.value ? C.text : C.muted, fontFamily: "'Archivo', sans-serif",
+                fontWeight: km === preset.value ? 600 : "normal"
+              }}>{preset.label}</button>
+            ))}
+            <span style={{ fontSize: 12, color: C.muted }}>Custom km:</span>
+            <input type="number" value={kmText} onChange={e => { setKmText(e.target.value); setKm(parseInt(e.target.value) || 0); }} min={0} step={5} style={{ ...numStyle, width: 70 }} />
+            <span style={{ fontSize: 12, color: C.dim }}>\u2192 {driveHrs.toFixed(1)} hrs each way</span>
+          </div>
+        </div>
+
+        <div style={{ marginBottom: 18 }}>
+          <div style={{ fontSize: 13, color: C.muted, marginBottom: 8 }}>Site visits</div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            {E2_VISITS_DEF.map(v => {
+              const vis = vs[v.id];
+              return (
+                <div key={v.id} style={{ border: `1px solid ${C.border}`, borderRadius: 8, padding: "12px 14px", background: C.bg, opacity: vis.on ? 1 : 0.45 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                    <input type="checkbox" checked={vis.on} onChange={e => setVs(vv => ({ ...vv, [v.id]: { ...vv[v.id], on: e.target.checked } }))} style={{ width: 16, height: 16, cursor: "pointer", accentColor: C.gold, flexShrink: 0 }} />
+                    <span style={{ fontSize: 13, color: C.text, flex: 1 }}>{v.name}</span>
+                    <span style={{ fontSize: 13, fontWeight: 600, color: vis.on ? C.gold : C.dim, minWidth: 70, textAlign: "right" }}>{vis.on ? fmt(calcVFee(v.id)) : "\u2014"}</span>
+                  </div>
+                  {vis.on && (
+                    <div style={{ marginTop: 8, paddingTop: 8, borderTop: `1px solid ${C.faint}`, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                      <div>
+                        <div style={{ fontSize: 11, color: C.dim, marginBottom: 4 }}>On-site hours</div>
+                        <input type="number" value={vis.hrs} min={0.5} max={8} step={0.5} onChange={e => setVs(vv => ({ ...vv, [v.id]: { ...vv[v.id], hrs: parseFloat(e.target.value) || 2 } }))} style={{ ...numStyle, width: 65 }} />
+                      </div>
+                      <div>
+                        <div style={{ fontSize: 11, color: C.dim, marginBottom: 4 }}>Total (incl. {(driveHrs * 2).toFixed(1)} hrs return)</div>
+                        <div style={{ fontSize: 12, color: C.muted, paddingTop: 6 }}>{(vis.hrs + driveHrs * 2).toFixed(1)} hrs @ $250</div>
+                      </div>
+                      <div style={{ gridColumn: "1 / -1" }}>
+                        <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: C.muted, cursor: "pointer" }}>
+                          <input type="checkbox" checked={vis.designer} onChange={e => setVs(vv => ({ ...vv, [v.id]: { ...vv[v.id], designer: e.target.checked } }))} style={{ accentColor: C.gold }} />
+                          Add designer on this visit (+{fmt(vis.hrs * 175)})
+                        </label>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        <div>
+          <div style={{ fontSize: 13, color: C.muted, marginBottom: 10 }}>Construction management</div>
+          {[
+            { label: "Months of construction", value: mgmtMonths, setter: setMgmtMonths, result: null,      max: 36, step: 1   },
+            { label: "Gregory hrs / month",    value: mgmtGHrs,   setter: setMgmtGHrs,   result: fmt(mgmtG), max: 20, step: 0.5 },
+            { label: "Designer hrs / month",   value: mgmtDHrs,   setter: setMgmtDHrs,   result: fmt(mgmtD), max: 20, step: 0.5 },
+            { label: "Jenny hrs / month",      value: mgmtJHrs,   setter: setMgmtJHrs,   result: fmt(mgmtJ), max: 10, step: 0.5 },
+          ].map((row, i) => (
+            <div key={i} style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8, flexWrap: "wrap" }}>
+              <span style={{ fontSize: 13, color: C.muted, minWidth: 180 }}>{row.label}</span>
+              <input type="number" value={row.value} onChange={e => row.setter(e.target.value)} min={0} max={row.max} step={row.step} style={{ ...numStyle, width: 70 }} />
+              {row.result && <span style={{ fontSize: 12, color: C.dim }}>= {row.result}</span>}
+            </div>
+          ))}
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", padding: "8px 12px", background: C.faint, borderRadius: 8, marginTop: 8 }}>
+            <span style={{ fontSize: 12, color: C.muted }}>Total management fee</span>
+            <span style={{ fontSize: 14, fontWeight: 600, color: C.text }}>{fmt(mgmtTotal)}</span>
+          </div>
+          <div style={{ fontSize: 12, color: C.muted, background: C.faint, borderRadius: 6, padding: "7px 12px", marginTop: 8, lineHeight: 1.5 }}>
+            Builder communication, trade coordination, RFIs, drawing questions, supplier follow-up.
+          </div>
+        </div>
+      </div>
+
+      {/* ── DRAW SCHEDULE ── */}
+      <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 8, padding: "20px 22px" }}>
+        <div style={{ fontSize: 11, letterSpacing: 2, color: C.dim, marginBottom: 14 }}>DRAW SCHEDULE</div>
+        <div style={{ display: "grid", gridTemplateColumns: "80px 1fr 90px 90px", gap: 10, marginBottom: 8 }}>
+          {["Draw", "Phase", "Fee", "With GST"].map((h, i) => (
+            <span key={i} style={{ fontSize: 11, color: C.dim, textAlign: i >= 2 ? "right" : "left" }}>{h}</span>
+          ))}
+        </div>
+        {draws.map((d, i) => (
+          <div key={i} style={{ display: "grid", gridTemplateColumns: "80px 1fr 90px 90px", gap: 10, alignItems: "start", padding: "12px 0", borderBottom: i < draws.length - 1 ? `1px solid ${C.faint}` : "none" }}>
+            <span style={{ fontSize: 12, fontWeight: 600, color: C.dim, paddingTop: 2 }}>{d.num}</span>
+            <div>
+              <div style={{ fontSize: 13, fontWeight: 500, color: C.text, marginBottom: 2 }}>{d.name}</div>
+              <div style={{ fontSize: 11, color: C.dim, marginBottom: 4 }}>{d.trigger}</div>
+              <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
+                {d.hrs.g > 0 && <span style={{ fontSize: 10, padding: "2px 7px", borderRadius: 12, background: "#E6F1FB", color: "#185FA5", whiteSpace: "nowrap" }}>Gregory {d.hrs.g} hrs</span>}
+                {d.hrs.d > 0 && <span style={{ fontSize: 10, padding: "2px 7px", borderRadius: 12, background: "#E1F5EE", color: "#085041", whiteSpace: "nowrap" }}>Designer {d.hrs.d} hrs</span>}
+                {d.hrs.j > 0 && <span style={{ fontSize: 10, padding: "2px 7px", borderRadius: 12, background: C.faint, color: C.dim, whiteSpace: "nowrap" }}>Jenny {d.hrs.j} hrs</span>}
+              </div>
+            </div>
+            <span style={{ fontSize: 14, fontWeight: 600, color: C.text, textAlign: "right", paddingTop: 2 }}>{fmt(d.fee)}</span>
+            <span style={{ fontSize: 12, color: C.muted, textAlign: "right", paddingTop: 4 }}>{fmt(d.fee * 1.05)}</span>
+          </div>
+        ))}
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", paddingTop: 14, borderTop: `2px solid ${C.border}`, marginTop: 4 }}>
+          <span style={{ fontSize: 14, fontWeight: 600, color: C.text }}>Total project fee</span>
+          <span style={{ fontSize: 26, fontWeight: 600, color: C.gold }}>{fmt(grand)}</span>
+        </div>
+        {grand > 0 && (
+          <div style={{ fontSize: 12, color: C.dim, marginTop: 6 }}>
+            + 5% GST = {fmt(grand * 0.05)}&nbsp;&nbsp;\u2192&nbsp;&nbsp;Total with tax {fmt(grand * 1.05)}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
 const FurnishingsEstimator = () => {
   const [clientName, setClientName] = useState("");
   const [rooms, setRooms] = useState([]);
@@ -1128,7 +1486,7 @@ const addWorkDays = (date, days) => {
   let added = 0;
   while (added < days) {
     d.setDate(d.getDate() + 1);
-    if (d.getDay() !== 0 && d.getDay() !== 6) added++;
+    if (d.getDay() !== 0) added++;
   }
   return d;
 };
@@ -1142,7 +1500,7 @@ const nextMeetingDay = (date, preferFriday = false) => {
     }
     d = new Date(date);
   }
-  while (d.getDay() === 0 || d.getDay() === 1 || d.getDay() === 6) d.setDate(d.getDate() + 1);
+  while (d.getDay() === 0 || d.getDay() === 1) d.setDate(d.getDate() + 1);
   return d;
 };
 
@@ -1152,8 +1510,8 @@ const getMeetingOptions = (baseDate, count = 3) => {
   for (let i = 0; i < count; i++) {
     options.push(new Date(d));
     d = new Date(d);
-    d.setDate(d.getDate() + (d.getDay() === 4 ? 4 : d.getDay() === 3 ? 4 : 3));
-    while (d.getDay() === 0 || d.getDay() === 1 || d.getDay() === 6) d.setDate(d.getDate() + 1);
+    d.setDate(d.getDate() + (d.getDay() === 4 ? 3 : 2));
+    while (d.getDay() === 0 || d.getDay() === 1) d.setDate(d.getDate() + 1);
   }
   return options;
 };
@@ -1260,7 +1618,7 @@ const computeDates = (events) => {
       const off = ev.offsetFromPrev || ev.offsetFromPrevBlock || 1;
       if (cursor) cursor = addWorkDays(cursor, off);
       else cursor = new Date();
-      while (cursor.getDay() === 0 || cursor.getDay() === 1 || cursor.getDay() === 6) cursor.setDate(cursor.getDate() + 1);
+      while (cursor.getDay() === 0 || cursor.getDay() === 1) cursor.setDate(cursor.getDate() + 1);
       const blockStart = new Date(cursor);
       if (ev.days > 1) cursor = addWorkDays(cursor, ev.days - 1);
       return { ...ev, date: blockStart, startTime: withTime(blockStart, 9), endTime: withTime(blockStart, 17) };
@@ -1306,7 +1664,7 @@ const ScheduleTab = () => {
     if (!schedule || schedule.length === 0) return new Date(0);
     return schedule.filter(e => e.date).reduce((latest, e) => {
       let end = new Date(e.date);
-      if (e.days > 1) { let added = 0; while (added < e.days - 1) { end.setDate(end.getDate() + 1); if (end.getDay() !== 0 && end.getDay() !== 6 && end.getDay() !== 1) added++; } }
+      if (e.days > 1) { let added = 0; while (added < e.days - 1) { end.setDate(end.getDate() + 1); if (end.getDay() !== 0 && end.getDay() !== 1) added++; } }
       return end > latest ? end : latest;
     }, new Date(0));
   };
@@ -1573,7 +1931,7 @@ const ScheduleTab = () => {
             let added = 0;
             while (added < e.days - 1) {
               end.setDate(end.getDate() + 1);
-              if (end.getDay() !== 0 && end.getDay() !== 6 && end.getDay() !== 1) added++;
+              if (end.getDay() !== 0 && end.getDay() !== 1) added++;
             }
           }
           return end > latest ? end : latest;
@@ -1654,20 +2012,20 @@ const ScheduleTab = () => {
                             <div style={{ textAlign: "right", flexShrink: 0 }}>
                               {ev.date && (
                                 <div style={{ fontSize: 13, color: ev.type === "meeting" ? phaseColor : C.muted, fontWeight: 500 }}>
-                                  {ev.type !== "meeting" && ev.days > 1 ? (() => {
-                                    const dates = [new Date(ev.date)];
-                                    let d = new Date(ev.date);
-                                    while (dates.length < ev.days) {
-                                      d = new Date(d); d.setDate(d.getDate() + 1);
-                                      if (d.getDay() !== 0 && d.getDay() !== 6 && d.getDay() !== 1) dates.push(new Date(d));
+                                  {ev.days > 1 ? (() => {
+                                    const end = new Date(ev.date);
+                                    let added = 0;
+                                    while (added < ev.days - 1) {
+                                      end.setDate(end.getDate() + 1);
+                                      if (end.getDay() !== 0 && end.getDay() !== 1) added++;
                                     }
-                                    return dates.map(dt => dt.toLocaleDateString("en-CA", { weekday: "short", month: "short", day: "numeric" })).join(", ");
+                                    return `${fmtDate(ev.date)} – ${fmtDate(end)}`;
                                   })() : fmtDate(ev.date)}
                                 </div>
                               )}
                               {ev.startTime && ev.endTime && (
                                 <div style={{ fontSize: 11, color: C.dim, marginTop: 2 }}>
-                                  {ev.type !== "meeting" && ev.days > 1 ? `${ev.days} days (flexible) · ` : ""}{fmtTime(ev.startTime)} – {fmtTime(ev.endTime)}
+                                  {ev.days > 1 ? `${ev.days} days · ` : ""}{fmtTime(ev.startTime)} – {fmtTime(ev.endTime)}
                                 </div>
                               )}
                             </div>
@@ -2118,6 +2476,7 @@ function App({ user, onSignOut }) {
       )}
 
       {tab === "Estimator" && <PinGate><Estimator /></PinGate>}
+      {tab === "Estimator 2" && <PinGate><Estimator2 /></PinGate>}
       {tab === "Furnishings" && <PinGate><FurnishingsEstimator /></PinGate>}
 
       {tab === "Knowledge Base" && (
