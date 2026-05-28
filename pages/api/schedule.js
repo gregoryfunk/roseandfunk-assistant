@@ -5,44 +5,95 @@ const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SUPABASE_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
 const SCHEDULE_RULES = `
-SCHEDULING RULES — follow these exactly:
-- No meetings on Mondays ever
+SCHEDULING RULES:
+- No meetings on Mondays
 - Client meetings: Tuesday–Friday only
-- Design block days: Monday–Friday (design work can happen Monday, meetings cannot)
-- Big presentations (Concept Elevation 4hr, Material Confirmation 3hr, Final Review 3hr): prefer 11am or 1pm start, prefer Friday but not required
-- Aesthetic Direction Meeting (1.5hr): 10am or 1pm start
-- Initial Meeting (1.5hr): 10am or 1pm start
-- ONE designer per project — Gregory attends all client meetings
-- Skip Canadian holidays: BC Day (first Mon Aug), Labour Day (first Mon Sep), Thanksgiving (second Mon Oct)
+- Design blocks: Monday–Friday
+- Big presentations (Concept Elevation 4hr, Material Confirmation 3hr, Final Review 3hr): prefer 11:00 or 13:00 start, prefer Friday
+- Aesthetic Direction Meeting (1.5hr): 10:00 or 13:00 start
+- Initial Meeting (1.5hr): 10:00 or 13:00 start
+- Gregory attends all client meetings
+- Skip BC Day (first Mon Aug), Labour Day (first Mon Sep), Thanksgiving (second Mon Oct)
 - Gregory away Jun 24–26 (no meetings those dates)
+`;
 
-ID CONSTRUCTION SEQUENCE:
-Pre-Design: Initial Drawing Set Up (2 days)
-Phase 1: Initial Meeting (1.5hr) → Aesthetic Direction (2 days) → Aesthetic Direction Meeting (1.5hr) → Appliance & Plumbing Meeting (4hr)
-Phase 2: Team Material Concept (2 days, Gregory + designer) → Complete Material Boards (2 days) → Lighting Concept Boards (1 day) → Sketch Elevations (1 day) → Elevations in AutoCAD (2 days) → Concept Elevation & Material Meeting (4hr)
-Phase 3: Concept Revisions & Material Boards (2 days) → Documentation (3 days) → Concept Exterior (1 day) → Material Confirmation Meeting (3hr)
-Phase 4: [15 day 3D rendering window] → Material Confirmation Revisions (1 day) → Complete Remaining Elevations (3 days) → Drawing Details (1 day) → Dimensioning & Noting Elevations (2 days) → Plan Layouts (5 days) → Final Review Meeting (3hr)
-Post Final: Make Client Adjustments (1 day) → Final Adjustments Send to Print (1 day) → Review Drawings & Gather (1 day) → All Final Edits Send to Client (3 days)
+const ID_SEQUENCE = `
+ID CONSTRUCTION — use these EXACT phase names and sequence:
 
-FURNISHINGS SEQUENCE:
-Pre-Design: Drawing File Set-Up (2 days)
-Phase 1: Initial Meeting (1.5hr) → Sourcing (2 days, Gregory OFF) → Mood Boards (3 days) → Pricing (1 day) → Furniture Meeting (2hr) → Revisions (1 day)
-Phase 2: Enter Gather (1 day) → Order Samples (1 day) → Fabric Confirmation Meeting on site (1.5hr) → Revisions (1 day)
-Phase 3: Art Sourcing (2 days, Gregory OFF) → Concept Boards (2 days) → Art Meeting (1.5hr) → Revisions (1 day)
-Phase 4: Furniture Setup Day → Accessory Install Day → Photoshoot
+"Pre-Design": Initial Drawing Set Up (2 days, design block)
 
-EVENT NAMING:
-- Client meetings: "RF [ClientName] | [Meeting Name]"
-- Design blocks: "Design [ClientName] | [Phase#]-[Block Name]"
+"Phase 1": 
+  Initial Meeting (meeting, 1.5hr)
+  Aesthetic Direction x2 days (design block, 2 days)
+  Aesthetic Direction Meeting (meeting, 1.5hr)
+  Appliance & Plumbing Meeting (meeting, 4hr)
+
+"Phase 2":
+  Team Material Concept x2 days (design block, 2 days)
+  Complete Material Boards x2 days (design block, 2 days)
+  Lighting Concept Boards (design block, 1 day)
+  Sketch Elevations (design block, 1 day)
+  Elevations in AutoCAD x2 days (design block, 2 days)
+  Concept Elevation & Material Meeting (meeting, 4hr)
+
+"Phase 3":
+  Concept Revisions & Material Boards x2 days (design block, 2 days)
+  Documentation x3 days (design block, 3 days)
+  Concept Exterior (design block, 1 day)
+  Material Confirmation Meeting (meeting, 3hr)
+
+"Phase 4":
+  [15 calendar day 3D rendering window — no work needed]
+  Material Confirmation Revisions (design block, 1 day)
+  Complete Remaining Elevations x3 days (design block, 3 days)
+  Drawing Details (design block, 1 day)
+  Dimensioning & Noting Elevations x2 days (design block, 2 days)
+  Plan Layouts x5 days (design block, 5 days)
+  Final Review Meeting (meeting, 3hr)
+
+"Post Final":
+  Make Client Adjustments (design block, 1 day)
+  Final Adjustments Send to Print (design block, 1 day)
+  Review Drawings & Gather (design block, 1 day)
+  All Final Edits Send to Client x3 days (design block, 3 days)
+`;
+
+const FURN_SEQUENCE = `
+FURNISHINGS — use these EXACT phase names and sequence:
+
+"Pre-Design": Drawing File Set-Up (design block, 2 days)
+
+"Phase 1 | Concept":
+  Initial Meeting (meeting, 1.5hr)
+  Sourcing x2 days (design block, 2 days, Gregory OFF)
+  Furniture Mood Boards x3 days (design block, 3 days)
+  Furniture Pricing (design block, 1 day)
+  Furniture Meeting (meeting, 2hr)
+  Furniture Revisions (design block, 1 day)
+
+"Phase 2 | Finalize":
+  Enter Selections into Gather (design block, 1 day)
+  Order Samples (design block, 1 day)
+  Fabric Confirmation Meeting on site (meeting, 1.5hr)
+  Fabric Confirmation Revisions (design block, 1 day)
+
+"Phase 3 | Accessories":
+  Art Sourcing x2 days (design block, 2 days, Gregory OFF)
+  Art & Accessory Concept Boards x2 days (design block, 2 days)
+  Art & Accessory Meeting (meeting, 1.5hr)
+  Art & Accessory Revisions (design block, 1 day)
+
+"Phase 4 | Installation":
+  Furniture Setup Day (design block, 1 day)
+  Accessory Install Day (design block, 1 day)
+  Photoshoot (design block, 1 day)
 `;
 
 async function getDesignerAvailability(designer, startDate, endDate) {
   if (!SUPABASE_URL || !SUPABASE_KEY) return null;
   try {
     const url = `${SUPABASE_URL}/rest/v1/designer_availability?designer=eq.${designer.toLowerCase()}&date=gte.${startDate}&date=lte.${endDate}&select=date,type,project,notes&order=date.asc`;
-    const res = await fetch(url, {
-      headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` },
-    });
+    const res = await fetch(url, { headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` } });
     if (!res.ok) return null;
     return await res.json();
   } catch { return null; }
@@ -52,9 +103,7 @@ async function getGregoryAbsences(startDate, endDate) {
   if (!SUPABASE_URL || !SUPABASE_KEY) return [];
   try {
     const url = `${SUPABASE_URL}/rest/v1/designer_availability?designer=eq.gregory&date=gte.${startDate}&date=lte.${endDate}&type=eq.absence&select=date&order=date.asc`;
-    const res = await fetch(url, {
-      headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` },
-    });
+    const res = await fetch(url, { headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` } });
     if (!res.ok) return [];
     const data = await res.json();
     return data.map(d => d.date);
@@ -65,82 +114,89 @@ async function getLastSyncTime() {
   if (!SUPABASE_URL || !SUPABASE_KEY) return null;
   try {
     const url = `${SUPABASE_URL}/rest/v1/designer_availability?select=synced_at&order=synced_at.desc&limit=1`;
-    const res = await fetch(url, {
-      headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` },
-    });
+    const res = await fetch(url, { headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` } });
     if (!res.ok) return null;
     const data = await res.json();
     return data[0]?.synced_at || null;
   } catch { return null; }
 }
 
-function formatAvailabilityForPrompt(designerData, gregoryAbsences, designer, lastSync) {
+function formatCalendarContext(designerData, gregoryAbsences, designer, lastSync) {
   if (!designerData || designerData.length === 0) {
-    return lastSync
-      ? `${designer} has no conflicts in this period. (Synced: ${new Date(lastSync).toLocaleDateString("en-CA")})`
-      : `Calendar not yet synced — scheduling by rules only.`;
+    return lastSync ? `${designer} has no booked days in this period.` : `Calendar not synced.`;
   }
-  const designBlocks = designerData.filter(d => d.type === "design_block");
-  const absences = designerData.filter(d => d.type === "absence");
+  const blocks = designerData.filter(d => d.type === "design_block");
+  const absent = designerData.filter(d => d.type === "absence");
   let text = "";
-  if (absences.length > 0) {
-    text += `\n${designer} AWAY (no work): ${absences.map(d => d.date).join(", ")}\n`;
-  }
-  if (designBlocks.length > 0) {
-    text += `\n${designer} BOOKED DESIGN DAYS (avoid scheduling additional blocks on these dates):\n`;
+  if (absent.length > 0) text += `${designer} AWAY: ${absent.map(d => d.date).join(", ")}\n`;
+  if (blocks.length > 0) {
     const byProject = {};
-    designBlocks.forEach(d => {
-      const p = d.project || "Other";
-      if (!byProject[p]) byProject[p] = [];
-      byProject[p].push(d.date);
-    });
-    Object.entries(byProject).forEach(([proj, dates]) => {
-      text += `  ${proj}: ${dates.join(", ")}\n`;
-    });
+    blocks.forEach(d => { const p = d.project || "Other"; if (!byProject[p]) byProject[p] = []; byProject[p].push(d.date); });
+    text += `${designer} BOOKED (skip these for design blocks):\n`;
+    Object.entries(byProject).forEach(([proj, dates]) => { text += `  ${proj}: ${dates.join(", ")}\n`; });
   }
-  if (gregoryAbsences.length > 0) {
-    text += `\nGREGORY AWAY (no client meetings): ${gregoryAbsences.join(", ")}\n`;
-  }
-  if (lastSync) {
-    text += `\n(Calendar synced: ${new Date(lastSync).toLocaleDateString("en-CA", { month: "short", day: "numeric", year: "numeric" })})\n`;
-  }
-  return text || `${designer} has no conflicts in this period.`;
+  if (gregoryAbsences.length > 0) text += `GREGORY AWAY (no meetings): ${gregoryAbsences.join(", ")}\n`;
+  return text || `${designer} is free.`;
 }
 
-const SCHEDULE_JSON_FORMAT = `
-Respond ONLY with valid JSON (no markdown, no backticks, no extra text).
-The JSON must have this exact shape:
+function buildPrompt(clientName, projectType, contractDate, designer, calendarContext) {
+  const isFurn = projectType === "furnishings";
+  return `Generate a complete project schedule. Reply ONLY with valid JSON — no markdown, no backticks, no explanation.
+
+Client: ${clientName}
+Contract: ${contractDate}
+Designer: ${designer}
+Type: ${isFurn ? "Furnishings" : "ID Construction"}
+
+${SCHEDULE_RULES}
+
+${isFurn ? FURN_SEQUENCE : ID_SEQUENCE}
+
+NAMING:
+- Meetings: "RF ${clientName} | [Meeting Name]"
+- Design blocks: "Design ${clientName} | [Phase#]-[Block Name]"
+
+CALENDAR — avoid these dates for design blocks, avoid gregory away for meetings:
+${calendarContext}
+
+OUTPUT FORMAT — return this exact JSON structure:
 {
   "schedule": [
     {
       "phase": "Pre-Design",
-      "label": "RF Clark | Initial Meeting",
+      "label": "Design ${clientName} | Initial Drawing Set Up",
+      "type": "design",
+      "date": "YYYY-MM-DD",
+      "days": 2,
+      "notes": "2 days"
+    },
+    {
+      "phase": "Phase 1",
+      "label": "RF ${clientName} | Initial Meeting",
       "type": "meeting",
-      "date": "2026-07-07",
+      "date": "YYYY-MM-DD",
       "startTime": "10:00",
       "endTime": "11:30",
       "days": 1,
       "notes": "1.5hr",
-      "options": ["2026-07-07", "2026-07-08", "2026-07-09"]
+      "options": ["YYYY-MM-DD", "YYYY-MM-DD", "YYYY-MM-DD"]
     }
   ],
-  "conflicts": [],
-  "calendarNote": "✓ Calendar synced May 28"
+  "conflicts": []
 }
 
-Rules for the schedule array:
-- Every event needs: phase, label, type (meeting|design|admin), date, days, notes
-- Meetings need: startTime (HH:MM), endTime (HH:MM), options (3 conflict-free date strings)
-- Design blocks need: days (number of consecutive days), no startTime/endTime needed
-- Use RF [ClientName] | [Meeting Name] for client meetings
-- Use Design [ClientName] | [Phase]-[BlockName] for design blocks
-- dates are YYYY-MM-DD strings
-`;
+Rules:
+- Every design block: phase, label, type="design", date (first day), days (count), notes
+- Every meeting: phase, label, type="meeting", date, startTime (HH:MM 24hr), endTime (HH:MM 24hr), days=1, notes, options (3 conflict-free alternative dates)
+- Use the EXACT phase names from the sequence above
+- No Monday meetings
+- Skip designer booked days for design blocks
+- For multi-day design blocks, use the start date; skip weekends and holidays`;
+}
 
 export default async function handler(req, res) {
   if (req.method !== "POST") return res.status(405).end();
-
-  const { action, clientName, projectType, contractDate, designer, events, revision, messages } = req.body;
+  const { action, clientName, projectType, contractDate, designer, events, revision } = req.body;
 
   // ── generate_schedule ─────────────────────────────────────────────────────
   if (action === "generate_schedule") {
@@ -153,39 +209,17 @@ export default async function handler(req, res) {
       getLastSyncTime(),
     ]);
 
-    const calendarContext = formatAvailabilityForPrompt(designerData, gregoryAbsences, designer, lastSync);
+    const calendarContext = formatCalendarContext(designerData, gregoryAbsences, designer, lastSync);
     const calendarNote = lastSync
       ? `✓ Calendar synced ${new Date(lastSync).toLocaleDateString("en-CA", { month: "short", day: "numeric" })}`
-      : "⚠ Not synced — say 'sync calendar' in Chat to enable conflict checking";
+      : "⚠ Not synced — say 'sync calendar' in Chat";
 
-    const prompt = `Generate a complete ${projectType === "furnishings" ? "Furnishings" : "ID Construction"} project schedule.
-
-Client: ${clientName}
-Contract date: ${contractDate}
-Designer: ${designer}
-
-${SCHEDULE_RULES}
-
-REAL CALENDAR DATA — avoid scheduling on these dates:
-${calendarContext}
-
-${SCHEDULE_JSON_FORMAT}
-
-Important:
-- For each CLIENT MEETING provide 3 conflict-free date options in the "options" array
-- Skip designer's booked days for design blocks
-- Skip Gregory's away days for meetings
-- No meetings on Mondays
-- Follow the sequence exactly for ${projectType === "furnishings" ? "Furnishings" : "ID Construction"}`;
+    const prompt = buildPrompt(clientName, projectType, contractDate, designer, calendarContext);
 
     const response = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        model: "claude-sonnet-4-5",
-        max_tokens: 4000,
-        messages: [{ role: "user", content: prompt }],
-      }),
+      body: JSON.stringify({ model: "claude-sonnet-4-5", max_tokens: 4000, messages: [{ role: "user", content: prompt }] }),
     });
 
     const data = await response.json();
@@ -194,77 +228,55 @@ Important:
       const parsed = JSON.parse(text.replace(/```json|```/g, "").trim());
       return res.status(200).json({ ...parsed, calendarNote });
     } catch {
-      return res.status(200).json({ error: "Parse error", schedule: [], calendarNote });
+      return res.status(200).json({ schedule: [], conflicts: [], calendarNote, error: "Parse error" });
     }
   }
 
   // ── finalize_schedule ─────────────────────────────────────────────────────
   if (action === "finalize_schedule") {
-    const eventsJson = JSON.stringify(events?.slice(0, 30) || []);
-
-    const prompt = `You are finalizing a project schedule for ${clientName}. The user has reviewed and selected dates for all meetings. 
-
-Here are the confirmed events (some may have selectedOption set to indicate which date was chosen):
-${eventsJson}
-
-Return the finalized schedule with all events having their final confirmed dates.
-
-${SCHEDULE_JSON_FORMAT.replace('"options": ["2026-07-07", "2026-07-08", "2026-07-09"]', '"options": []')}`;
-
-    const response = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        model: "claude-sonnet-4-5",
-        max_tokens: 4000,
-        messages: [{ role: "user", content: prompt }],
-      }),
-    });
-
-    const data = await response.json();
-    const text = data.content?.find(b => b.type === "text")?.text || "{}";
-    try {
-      const parsed = JSON.parse(text.replace(/```json|```/g, "").trim());
-      return res.status(200).json(parsed);
-    } catch {
-      // If parse fails just return the events as-is
-      return res.status(200).json({ schedule: events || [] });
-    }
+    // Just return the events as-is — the frontend has already handled date selection
+    return res.status(200).json({ schedule: events || [] });
   }
 
   // ── revise_schedule ───────────────────────────────────────────────────────
   if (action === "revise_schedule") {
-    const systemPrompt = `You are a scheduling assistant for Rose & Funk interior design studio. Help adjust project schedules based on feedback.
-${SCHEDULE_RULES}
-When asked to move or change events, return an updated schedule JSON.
-If just answering a question, return a message only.
-Be concise and specific with dates.`;
+    const currentJson = JSON.stringify((events || []).slice(0, 25));
+    const prompt = `You are a scheduling assistant for Rose & Funk interior design studio.
 
-    const currentScheduleJson = JSON.stringify(events?.slice(0, 20) || []);
-    const userMessage = `Current schedule: ${currentScheduleJson}\n\nRevision request: ${revision}`;
+Current schedule (JSON):
+${currentJson}
+
+Revision request: "${revision}"
+
+${SCHEDULE_RULES}
+
+If the request involves moving dates, return updated JSON with the same structure.
+If just answering a question, return a message only.
+
+Reply with JSON if updating schedule:
+{"schedule": [...same structure as input with updated dates...], "message": "What changed"}
+
+Or just reply with plain text if no schedule change needed.`;
 
     const response = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        model: "claude-sonnet-4-5",
-        max_tokens: 2000,
-        system: systemPrompt,
-        messages: [{ role: "user", content: userMessage }],
+        model: "claude-sonnet-4-5", max_tokens: 2000,
+        messages: [{ role: "user", content: prompt }],
       }),
     });
 
     const data = await response.json();
     const text = data.content?.find(b => b.type === "text")?.text || "";
 
-    // Try to extract JSON schedule from response
     try {
       const jsonMatch = text.match(/\{[\s\S]*"schedule"[\s\S]*\}/);
       if (jsonMatch) {
         const parsed = JSON.parse(jsonMatch[0]);
-        return res.status(200).json({ schedule: parsed.schedule, message: "Schedule updated." });
+        return res.status(200).json({ schedule: parsed.schedule, message: parsed.message || "Schedule updated." });
       }
-    } catch { /* fall through to text response */ }
+    } catch { /* fall through */ }
 
     return res.status(200).json({ message: text });
   }
