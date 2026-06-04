@@ -2430,11 +2430,19 @@ function App({ user, onSignOut }) {
     setLoading(true);
     try {
       const data = await api({ messages: msgs.filter(m => m.type !== "clarifying") });
+      // Fallback: sometimes the API returns clarifying JSON embedded in a text response
+      let resolvedData = data;
+      if (data.type !== "clarifying" && data.text) {
+        const match = data.text.match(/\{[\s\S]*"type"\s*:\s*"clarifying"[\s\S]*\}/);
+        if (match) {
+          try { resolvedData = JSON.parse(match[0]); } catch {}
+        }
+      }
       const newMsg = {
         role: "assistant",
-        type: data.type || "answer",
-        content: data.type === "clarifying" ? null : (data.text || "Sorry, no response."),
-        clarifyData: data.type === "clarifying" ? data : null
+        type: resolvedData.type || "answer",
+        content: resolvedData.type === "clarifying" ? null : (resolvedData.text || data.text || "Sorry, no response."),
+        clarifyData: resolvedData.type === "clarifying" ? resolvedData : null
       };
       setMessages([...msgs, newMsg]);
     } catch {
