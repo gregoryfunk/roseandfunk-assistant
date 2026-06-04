@@ -806,10 +806,10 @@ const E2_ROOMS = [
 ];
 const E2_TIER_LABELS = { h: "High complexity", m: "Medium", s: "Standard", l: "Light touch" };
 const E2_P1_TIERS = [
-  { fee: 8500,  label: "Small",      spaces: "≤10 spaces",  maxSpaces: 10,  gHrs: 20, dHrs: 12 },
-  { fee: 10500, label: "Medium",     spaces: "11–16 spaces", maxSpaces: 16,  gHrs: 25, dHrs: 15 },
-  { fee: 13000, label: "Large",      spaces: "17–22 spaces", maxSpaces: 22,  gHrs: 31, dHrs: 18 },
-  { fee: 15500, label: "Major build",spaces: "23+ spaces",   maxSpaces: 999, gHrs: 37, dHrs: 22 },
+  { fee: 8500,  label: "Small",       spaces: "≤10 spaces",  maxSpaces: 10,  gHrs: 20, dHrs: 12 },
+  { fee: 10500, label: "Medium",      spaces: "11–16 spaces", maxSpaces: 16,  gHrs: 25, dHrs: 15 },
+  { fee: 13000, label: "Large",       spaces: "17–22 spaces", maxSpaces: 22,  gHrs: 31, dHrs: 18 },
+  { fee: 15500, label: "Major build", spaces: "23+ spaces",   maxSpaces: 999, gHrs: 37, dHrs: 22 },
 ];
 const E2_VISITS_DEF = [
   { id: "framing",     name: "Framing meeting",            defaultHrs: 2,   defaultOn: true  },
@@ -828,6 +828,7 @@ const E2_TIER_COLORS = {
 };
 
 const Estimator2 = () => {
+  const [clientName, setClientName] = useState("");
   const [p1Custom, setP1Custom] = useState("");
   const [km, setKm] = useState(20);
   const [kmText, setKmText] = useState("20");
@@ -837,6 +838,53 @@ const Estimator2 = () => {
   const [mgmtGHrs, setMgmtGHrs] = useState("3");
   const [mgmtDHrs, setMgmtDHrs] = useState("1");
   const [mgmtJHrs, setMgmtJHrs] = useState("0.5");
+  const [saveStatus, setSaveStatus] = useState("");
+  const [savedEstimates, setSavedEstimates] = useState([]);
+  const [showSaved, setShowSaved] = useState(false);
+
+  useEffect(() => {
+    api({ action: "load_estimates" }).then(d => {
+      if (d.estimates) setSavedEstimates(d.estimates.filter(e => e.rooms?.[0]?.id === "fee_calc"));
+    });
+  }, []);
+
+  const saveEstimate = async () => {
+    if (!clientName.trim()) { setSaveStatus("Please enter a client name first."); setTimeout(() => setSaveStatus(""), 2500); return; }
+    const snapshot = { p1Custom, km, qty, vs, mgmtMonths, mgmtGHrs, mgmtDHrs, mgmtJHrs };
+    await api({ action: "save_estimate", client_name: clientName, rooms: [{ id: "fee_calc", label: "Project Fee Calc", cost: grand, qty: 1, snapshot }], total: grand });
+    setSaveStatus("Estimate saved!");
+    setTimeout(() => setSaveStatus(""), 2500);
+    const d = await api({ action: "load_estimates" });
+    if (d.estimates) setSavedEstimates(d.estimates.filter(e => e.rooms?.[0]?.id === "fee_calc"));
+  };
+
+  const loadEstimate = (est) => {
+    setClientName(est.client_name);
+    const snap = est.rooms?.[0]?.snapshot;
+    if (snap) {
+      if (snap.p1Custom !== undefined) setP1Custom(snap.p1Custom);
+      if (snap.km !== undefined) { setKm(snap.km); setKmText(String(snap.km)); }
+      if (snap.qty) setQty(snap.qty);
+      if (snap.vs) setVs(snap.vs);
+      if (snap.mgmtMonths !== undefined) setMgmtMonths(snap.mgmtMonths);
+      if (snap.mgmtGHrs !== undefined) setMgmtGHrs(snap.mgmtGHrs);
+      if (snap.mgmtDHrs !== undefined) setMgmtDHrs(snap.mgmtDHrs);
+      if (snap.mgmtJHrs !== undefined) setMgmtJHrs(snap.mgmtJHrs);
+    }
+    setShowSaved(false);
+  };
+
+  const deleteEstimate = async (id) => {
+    await api({ action: "delete_estimate", id });
+    setSavedEstimates(e => e.filter(x => x.id !== id));
+  };
+
+  const resetAll = () => {
+    setClientName(""); setP1Custom(""); setKm(20); setKmText("20");
+    setQty(Object.fromEntries(E2_ROOMS.map(r => [r.name, 0])));
+    setVs(Object.fromEntries(E2_VISITS_DEF.map(v => [v.id, { on: v.defaultOn, hrs: v.defaultHrs, designer: false }])));
+    setMgmtMonths("10"); setMgmtGHrs("3"); setMgmtDHrs("1"); setMgmtJHrs("0.5");
+  };
 
   const totalSpaces = E2_ROOMS.reduce((s, r) => s + qty[r.name], 0);
   const autoTier = E2_P1_TIERS.find(t => totalSpaces <= t.maxSpaces) || E2_P1_TIERS[3];
@@ -904,9 +952,42 @@ const Estimator2 = () => {
 
   return (
     <div style={{ flex: 1, maxWidth: 900, width: "100%", margin: "0 auto", padding: "24px 16px", overflowY: "auto" }}>
-      <div style={{ marginBottom: 24 }}>
-        <div style={{ fontSize: 11, letterSpacing: 2, color: C.dim }}>PROJECT FEE CALCULATOR</div>
-        <div style={{ fontSize: 12, color: C.dim, marginTop: 4 }}>P1 flat fee · P2–4 room-based · P5 calculated</div>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 20, flexWrap: "wrap", gap: 12 }}>
+        <div>
+          <div style={{ fontSize: 11, letterSpacing: 2, color: C.dim }}>PROJECT FEE CALCULATOR</div>
+          <div style={{ fontSize: 12, color: C.dim, marginTop: 4 }}>P1 flat fee · P2–4 room-based · P5 calculated</div>
+        </div>
+        <div style={{ display: "flex", gap: 8 }}>
+          <button onClick={() => setShowSaved(!showSaved)} style={{ background: "transparent", border: `1px solid ${C.border}`, borderRadius: 6, color: C.muted, fontSize: 12, padding: "6px 14px", cursor: "pointer", fontFamily: "'Archivo', sans-serif" }}>Saved Estimates ({savedEstimates.length})</button>
+          <button onClick={resetAll} style={{ background: "transparent", border: `1px solid ${C.border}`, borderRadius: 6, color: C.dim, fontSize: 12, padding: "6px 14px", cursor: "pointer", fontFamily: "'Archivo', sans-serif" }}>Reset</button>
+        </div>
+      </div>
+
+      {showSaved && (
+        <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 8, padding: "16px", marginBottom: 20 }}>
+          <div style={{ fontSize: 11, letterSpacing: 2, color: C.dim, marginBottom: 12 }}>SAVED ESTIMATES</div>
+          {savedEstimates.length === 0 ? <div style={{ color: C.dim, fontSize: 13 }}>No saved estimates yet.</div> :
+            savedEstimates.map(est => (
+              <div key={est.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 0", borderBottom: `1px solid ${C.faint}` }}>
+                <div>
+                  <div style={{ fontSize: 14, color: C.text }}>{est.client_name}</div>
+                  <div style={{ fontSize: 11, color: C.dim, marginTop: 2 }}>{fmt(est.total)} · {new Date(est.created_at).toLocaleDateString("en-CA")}</div>
+                </div>
+                <div style={{ display: "flex", gap: 8 }}>
+                  <button onClick={() => loadEstimate(est)} style={{ background: C.gold, color: C.bg, border: "none", borderRadius: 4, fontSize: 11, padding: "4px 12px", cursor: "pointer", fontFamily: "'Archivo', sans-serif" }}>Load</button>
+                  <button onClick={() => deleteEstimate(est.id)} style={{ background: "transparent", border: `1px solid ${C.border}`, borderRadius: 4, color: C.red, fontSize: 11, padding: "4px 12px", cursor: "pointer", fontFamily: "'Archivo', sans-serif" }}>Delete</button>
+                </div>
+              </div>
+            ))}
+        </div>
+      )}
+
+      <div style={{ marginBottom: 20 }}>
+        <input value={clientName} onChange={e => setClientName(e.target.value)} placeholder="Client name…" style={{
+          width: "100%", background: C.surface, border: `1px solid ${C.border}`, borderRadius: 8,
+          color: C.text, padding: "12px 14px", fontSize: 15, outline: "none",
+          fontFamily: "'Archivo', sans-serif", boxSizing: "border-box"
+        }} />
       </div>
 
       {/* ── PHASE 1 ── */}
@@ -1076,7 +1157,7 @@ const Estimator2 = () => {
         <div>
           <div style={{ fontSize: 13, color: C.muted, marginBottom: 10 }}>Construction management</div>
           {[
-            { label: "Months of construction", value: mgmtMonths, setter: setMgmtMonths, result: null,      max: 36, step: 1   },
+            { label: "Months of construction", value: mgmtMonths, setter: setMgmtMonths, result: null,       max: 36, step: 1   },
             { label: "Gregory hrs / month",    value: mgmtGHrs,   setter: setMgmtGHrs,   result: fmt(mgmtG), max: 20, step: 0.5 },
             { label: "Designer hrs / month",   value: mgmtDHrs,   setter: setMgmtDHrs,   result: fmt(mgmtD), max: 20, step: 0.5 },
             { label: "Jenny hrs / month",      value: mgmtJHrs,   setter: setMgmtJHrs,   result: fmt(mgmtJ), max: 10, step: 0.5 },
@@ -1128,6 +1209,12 @@ const Estimator2 = () => {
         {grand > 0 && (
           <div style={{ fontSize: 12, color: C.dim, marginTop: 6 }}>
             + 5% GST = {fmt(grand * 0.05)}&nbsp;&nbsp;\u2192&nbsp;&nbsp;Total with tax {fmt(grand * 1.05)}
+          </div>
+        )}
+        {grand > 0 && (
+          <div style={{ display: "flex", gap: 10, alignItems: "center", marginTop: 20, paddingTop: 16, borderTop: `1px solid ${C.faint}` }}>
+            <button onClick={saveEstimate} style={{ background: C.gold, color: C.bg, border: "none", borderRadius: 6, padding: "10px 22px", cursor: "pointer", fontSize: 13, fontFamily: "'Archivo', sans-serif" }}>Save Estimate</button>
+            {saveStatus && <span style={{ fontSize: 12, color: C.gold }}>{saveStatus}</span>}
           </div>
         )}
       </div>
