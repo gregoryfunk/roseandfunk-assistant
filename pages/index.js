@@ -855,7 +855,7 @@ const Estimator2 = () => {
     if (!clientName.trim()) { setSaveStatus("Please enter a client name first."); setTimeout(() => setSaveStatus(""), 2500); return; }
     const snapshot = { p1Custom, km, qty, vs, mgmtMonths, mgmtGHrs, mgmtDHrs, mgmtJHrs };
     try {
-      const result = await api({ action: "save_estimate", client_name: clientName, rooms: [{ id: "fee_calc", label: "Project Fee Calc", cost: grand, qty: 1, snapshot }], total: grand });
+      const result = await api({ action: "save_estimate", client_name: clientName, rooms: [{ id: "fee_calc", label: "Project Fee Calc", cost: Math.round(grand), qty: 1, snapshot }], total: Math.round(grand) });
       if (result.error) { setSaveStatus(`Error: ${result.error}`); setTimeout(() => setSaveStatus(""), 4000); return; }
       setSaveStatus("Estimate saved!");
       setTimeout(() => setSaveStatus(""), 2500);
