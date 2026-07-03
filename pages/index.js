@@ -851,11 +851,17 @@ const Estimator2 = () => {
   const saveEstimate = async () => {
     if (!clientName.trim()) { setSaveStatus("Please enter a client name first."); setTimeout(() => setSaveStatus(""), 2500); return; }
     const snapshot = { p1Custom, km, qty, vs, mgmtMonths, mgmtGHrs, mgmtDHrs, mgmtJHrs };
-    await api({ action: "save_estimate", client_name: clientName, rooms: [{ id: "fee_calc", label: "Project Fee Calc", cost: grand, qty: 1, snapshot }], total: grand });
-    setSaveStatus("Estimate saved!");
-    setTimeout(() => setSaveStatus(""), 2500);
-    const d = await api({ action: "load_estimates" });
-    if (d.estimates) setSavedEstimates(d.estimates.filter(e => e.rooms?.[0]?.id === "fee_calc"));
+    try {
+      const result = await api({ action: "save_estimate", client_name: clientName, rooms: [{ id: "fee_calc", label: "Project Fee Calc", cost: grand, qty: 1, snapshot }], total: grand });
+      if (result.error) { setSaveStatus(`Error: ${result.error}`); setTimeout(() => setSaveStatus(""), 4000); return; }
+      setSaveStatus("Estimate saved!");
+      setTimeout(() => setSaveStatus(""), 2500);
+      const d = await api({ action: "load_estimates" });
+      if (d.estimates) setSavedEstimates(d.estimates.filter(e => e.rooms?.[0]?.id === "fee_calc"));
+    } catch (err) {
+      setSaveStatus(`Error: ${err.message}`);
+      setTimeout(() => setSaveStatus(""), 4000);
+    }
   };
 
   const loadEstimate = (est) => {
