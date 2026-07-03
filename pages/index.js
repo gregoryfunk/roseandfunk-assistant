@@ -842,9 +842,12 @@ const Estimator2 = () => {
   const [savedEstimates, setSavedEstimates] = useState([]);
   const [showSaved, setShowSaved] = useState(false);
 
+  const parseRooms = (r) => { try { return typeof r === "string" ? JSON.parse(r) : (Array.isArray(r) ? r : []); } catch { return []; } };
+  const isFeeCalc = (e) => parseRooms(e.rooms)?.[0]?.id === "fee_calc";
+
   useEffect(() => {
     api({ action: "load_estimates" }).then(d => {
-      if (d.estimates) setSavedEstimates(d.estimates.filter(e => e.rooms?.[0]?.id === "fee_calc"));
+      if (d.estimates) setSavedEstimates(d.estimates.filter(isFeeCalc));
     });
   }, []);
 
@@ -857,7 +860,7 @@ const Estimator2 = () => {
       setSaveStatus("Estimate saved!");
       setTimeout(() => setSaveStatus(""), 2500);
       const d = await api({ action: "load_estimates" });
-      if (d.estimates) setSavedEstimates(d.estimates.filter(e => e.rooms?.[0]?.id === "fee_calc"));
+      if (d.estimates) setSavedEstimates(d.estimates.filter(isFeeCalc));
     } catch (err) {
       setSaveStatus(`Error: ${err.message}`);
       setTimeout(() => setSaveStatus(""), 4000);
@@ -866,7 +869,7 @@ const Estimator2 = () => {
 
   const loadEstimate = (est) => {
     setClientName(est.client_name);
-    const snap = est.rooms?.[0]?.snapshot;
+    const snap = parseRooms(est.rooms)?.[0]?.snapshot;
     if (snap) {
       if (snap.p1Custom !== undefined) setP1Custom(snap.p1Custom);
       if (snap.km !== undefined) { setKm(snap.km); setKmText(String(snap.km)); }
